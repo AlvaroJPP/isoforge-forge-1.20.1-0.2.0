@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/** Finds reachable air around the player and the first roof block above each reached column. */
+/** Finds reachable air and roof blocks while preserving low obstacles at player height. */
 final class RoomRevealScanner {
     private static final int MAX_VISITED_CELLS = 65_536;
     private static final int MIN_ROOF_COLUMNS = 4;
@@ -63,7 +63,10 @@ final class RoomRevealScanner {
             int x = BlockPos.getX(column.getKey());
             int z = BlockPos.getZ(column.getKey());
             int roofSearchEnd = Math.min(level.getMaxBuildHeight() - 1, column.getValue() + verticalRange);
-            for (int y = column.getValue() + 1; y <= roofSearchEnd; y++) {
+            // Os dois niveis ocupados pelo corpo nao sao candidatos a teto: uma parede baixa
+            // ou um bloco isolado nessa altura deve continuar visivel no reveal.
+            int firstRoofY = Math.max(column.getValue() + 1, feet.getY() + 2);
+            for (int y = firstRoofY; y <= roofSearchEnd; y++) {
                 pos.set(x, y, z);
                 // Nao consulta regioes ainda nao carregadas: o reveal nao deve provocar
                 // leituras fora do mundo disponivel ao cliente durante a busca do teto.
