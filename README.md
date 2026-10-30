@@ -75,7 +75,7 @@ Aumente `distance` no config para chegar mais perto do ortografico.
 
 - O detector de comodos e uma busca local simplificada; ainda nao reproduz a classificacao de salas/cavernas,
   handoffs de camera, mascaras espaciais e politicas topologicas completas da Fabric.
-- O HUD da Forge e intencionalmente leve nesta primeira etapa: estado da camera, alvo, vida e fome. Ainda nao inclui os orbes texturizados, numeros de dano, nameplates, loot beams, menus-bolha ou fotos/GIFs da Fabric.
+- O HUD da Forge inclui estado da camera, alvo, vida/fome, painel de alvo e nameplates com barras de vida para criaturas hostis e a entidade selecionada. Ainda nao inclui os orbes texturizados, numeros de dano, loot beams, menus-bolha ou fotos/GIFs da Fabric.
 - Click-to-move usa A* local com limite de expansao e degraus de um bloco; nao e ainda o pathfinder completo da Fabric e nao atravessa fluidos ou parkour.
 - A tela de configuracao ja altera opcoes em tempo real; ainda faltam abas, presets visuais e todos os controles avancados da Fabric.
 - Embeddium: o mixin alveja `me.jellysquid.mods.sodium.client.world.WorldSlice` (Embeddium 0.3.x / Rubidium).
@@ -96,6 +96,7 @@ texturizados, menus-bolha, gravacao de GIF e compatibilidade profunda com Sodium
 - Click-to-move opcional com Ctrl + clique direito e busca A* limitada a blocos caminhaveis.
 - Click-to-move revalida o proximo passo e tenta recalcular a rota quando o caminho muda (por exemplo, uma porta ou bloco bloqueando a passagem).
 - HUD mostra o destino e a quantidade de passos restantes durante o click-to-move; ao mirar em uma entidade viva, exibe nome, vida e distancia.
+- Nameplates ARPG no mundo exibem nome e barra de vida para criaturas hostis próximas e para qualquer entidade viva selecionada, respeitando o Room Reveal.
 - A busca do teto do reveal interrompe a leitura ao encontrar um chunk nao carregado, evitando consultar terreno fora da area disponivel ao cliente.
 - Rotacao continua por tecla pressionada, ajustes de pitch e teclas dedicadas de zoom.
 
