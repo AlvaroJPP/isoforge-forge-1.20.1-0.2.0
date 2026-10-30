@@ -45,7 +45,7 @@ com Oculus, embora shaders que dependem de uma projecao exata ainda possam apres
   e andares vizinhos do que um corte horizontal unico.
 - **Fallback em areas abertas:** sem um comodo coberto detectavel, o corte de teto continua ativo: blocos a
   partir do primeiro teto acima do jogador somem dentro do raio configurado.
-- **Tubo de visao:** um funil entre o jogador e a camera esconde geometria que bloqueia a linha de visao, incluindo a base de paredes na altura dos pes. O piso abaixo do jogador permanece preservado.
+- **Tubo de visao:** um funil entre o jogador e a camera esconde geometria que bloqueia a linha de visao acima do bloco ocupado pelos pes. O bloco de apoio e o piso nao entram no corte, inclusive ao caminhar sobre lajes e escadas.
 - Histerese (`debounceTicks`), ancoragem (`anchorStep`) e limite de reconstrucoes por tick (`rebuildsPerTick`)
   reduzem oscilacao e picos de trabalho.
 
