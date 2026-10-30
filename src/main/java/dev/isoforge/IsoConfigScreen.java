@@ -77,6 +77,14 @@ public final class IsoConfigScreen extends Screen {
         addStepper(right, y, columnWidth, "Raio do reveal", () -> Integer.toString(IsoConfig.V.ceilingRadius.get()),
                 () -> change(IsoConfig.V.ceilingRadius, Math.max(3, IsoConfig.V.ceilingRadius.get() - 1)),
                 () -> change(IsoConfig.V.ceilingRadius, Math.min(48, IsoConfig.V.ceilingRadius.get() + 1)));
+        y += 31;
+
+        addStepper(left, y, columnWidth, "Alcance nameplates", () -> IsoConfig.V.nameplateRange.get() + " blocos",
+                () -> change(IsoConfig.V.nameplateRange, Math.max(8, IsoConfig.V.nameplateRange.get() - 4)),
+                () -> change(IsoConfig.V.nameplateRange, Math.min(48, IsoConfig.V.nameplateRange.get() + 4)));
+        addStepper(right, y, columnWidth, "Alcance do reveal", () -> IsoConfig.V.revealReach.get() + " blocos",
+                () -> change(IsoConfig.V.revealReach, Math.max(8, IsoConfig.V.revealReach.get() - 4)),
+                () -> change(IsoConfig.V.revealReach, Math.min(120, IsoConfig.V.revealReach.get() + 4)));
         y += 38;
 
         addRenderableWidget(Button.builder(Component.literal("Restaurar padroes"), b -> resetDefaults())
