@@ -43,6 +43,15 @@ public record RevealState(
         return dx * dx + dz * dz <= (long) radius * radius;
     }
 
+    /**
+     * Entidades tambem respeitam os tetos detectados por coluna.
+     * Antes, somente o corte circular global era aplicado, fazendo mobs/NPCs
+     * acima do teto de um comodo continuarem visiveis atraves do reveal.
+     */
+    public boolean hiddenEntity(int x, int y, int z) {
+        return active && (hiddenByRoomRoof(x, y, z) || hiddenByCeiling(x, y, z));
+    }
+
     public boolean hiddenByRoomRoof(int x, int y, int z) {
         if (!active) return false;
         Integer cut = roomCuts.get(BlockPos.asLong(x, 0, z));
