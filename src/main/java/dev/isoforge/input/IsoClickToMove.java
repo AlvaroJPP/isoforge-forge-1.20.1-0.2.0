@@ -30,6 +30,7 @@ public final class IsoClickToMove {
     };
 
     private static final List<BlockPos> path = new ArrayList<>();
+    private static BlockPos target;
     private static boolean active;
     private static boolean jumpRequested;
 
@@ -42,6 +43,7 @@ public final class IsoClickToMove {
     public static void cancel() {
         active = false;
         jumpRequested = false;
+        target = null;
         path.clear();
     }
 
@@ -56,6 +58,7 @@ public final class IsoClickToMove {
 
         List<BlockPos> route = findPath(level, start, goal);
         if (route.isEmpty()) return false;
+        target = goal;
         path.addAll(route);
         active = path.size() > 1;
         return active;
@@ -92,12 +95,43 @@ public final class IsoClickToMove {
 
         BlockPos next = path.get(1);
         // O mundo pode mudar depois do calculo (porta fechada, bloco colocado,
-        // pistao ou outro jogador). Nunca continue seguindo um proximo passo invalido.
+        // pistao ou outro jogador). Tenta recalcular a rota antes de desistir.
         if (!isWalkable(mc.level, next)) {
-            cancel();
-            return;
+            if (!rebuildPath(mc.level, player)) {
+                cancel();
+                return;
+            }
+            if (path.size() <= 1) {
+                cancel();
+                return;
+            }
+            next = path.get(1);
         }
         jumpRequested = next.getY() > player.blockPosition().getY() && player.onGround();
+    }
+
+    /**
+     * Recalcula a rota quando uma porta/bloco altera o caminho.
+     * O destino original e preservado; se ele tambem ficou bloqueado,
+     * procura uma superficie caminhavel proxima antes de cancelar.
+     */
+    private static boolean rebuildPath(ClientLevel level, LocalPlayer player) {
+        if (target == null) return false;
+        BlockPos start = player.blockPosition();
+        BlockPos destination = target;
+        if (!isWalkable(level, destination)) {
+            destination = findNearbyGoal(level,
+                    new Vec3(target.getX() + 0.5, target.getY(), target.getZ() + 0.5), start);
+        }
+        if (destination == null) return false;
+
+        List<BlockPos> replacement = findPath(level, start, destination);
+        if (replacement.size() <= 1) return false;
+        path.clear();
+        path.addAll(replacement);
+        target = destination;
+        jumpRequested = false;
+        return true;
     }
 
     /** Substitui os impulsos de teclado enquanto a rota estiver ativa. */
