@@ -92,6 +92,8 @@ texturizados, menus-bolha, gravacao de GIF e compatibilidade profunda com Sodium
 - HUD ARPG com leitura de vida/fome, estado do reveal, zoom, yaw e indicador de mira.
 - Click-to-move opcional com Ctrl + clique direito e busca A* limitada a blocos caminhaveis.
 - Click-to-move revalida o proximo passo e tenta recalcular a rota quando o caminho muda (por exemplo, uma porta ou bloco bloqueando a passagem).
+- HUD mostra o destino e a quantidade de passos restantes durante o click-to-move; ao mirar em uma entidade viva, exibe nome, vida e distancia.
+- A busca do teto do reveal interrompe a leitura ao encontrar um chunk nao carregado, evitando consultar terreno fora da area disponivel ao cliente.
 - Rotacao continua por tecla pressionada, ajustes de pitch e teclas dedicadas de zoom.
 
 ## Se algo der errado
