@@ -14,6 +14,7 @@ public final class IsoConfigScreen extends Screen {
     private int panelX;
     private int panelY;
     private int panelWidth;
+    private static final int PANEL_HEIGHT = 450;
 
     public IsoConfigScreen(Screen parent) {
         super(Component.literal("Isocraft Settings"));
@@ -26,7 +27,7 @@ public final class IsoConfigScreen extends Screen {
         clearWidgets();
         panelWidth = Math.min(520, this.width - 28);
         panelX = (this.width - panelWidth) / 2;
-        panelY = Math.max(12, (this.height - 386) / 2);
+        panelY = Math.max(12, (this.height - PANEL_HEIGHT) / 2);
         int gap = 8;
         int columnWidth = (panelWidth - 44 - gap) / 2;
         int left = panelX + 18;
@@ -56,6 +57,12 @@ public final class IsoConfigScreen extends Screen {
         addToggle(right, y, columnWidth, "Ocultar crosshair", IsoConfig.V.hideCrosshair::get,
                 () -> change(IsoConfig.V.hideCrosshair, !IsoConfig.V.hideCrosshair.get()));
         y += 42;
+
+        addToggle(left, y, columnWidth, "Nameplates ARPG", IsoConfig.V.showNameplates::get,
+                () -> change(IsoConfig.V.showNameplates, !IsoConfig.V.showNameplates.get()));
+        addToggle(right, y, columnWidth, "Barras de vida", IsoConfig.V.showHealthBars::get,
+                () -> change(IsoConfig.V.showHealthBars, !IsoConfig.V.showHealthBars.get()));
+        y += 31;
 
         addStepper(left, y, columnWidth, "Inclinacao", () -> String.format("%.1f°", CameraRig.pitch()),
                 () -> CameraRig.setPitch(CameraRig.pitch() - 2.0),
@@ -138,6 +145,9 @@ public final class IsoConfigScreen extends Screen {
         change(IsoConfig.V.showAimIndicator, IsoConfig.V.showAimIndicator.getDefault());
         change(IsoConfig.V.hideHand, IsoConfig.V.hideHand.getDefault());
         change(IsoConfig.V.hideCrosshair, IsoConfig.V.hideCrosshair.getDefault());
+        change(IsoConfig.V.showNameplates, IsoConfig.V.showNameplates.getDefault());
+        change(IsoConfig.V.showHealthBars, IsoConfig.V.showHealthBars.getDefault());
+        change(IsoConfig.V.nameplateRange, IsoConfig.V.nameplateRange.getDefault());
         IsoReveal.setUserEnabled(IsoConfig.V.revealEnabled.get());
         CameraRig.reset();
         rebuildWidgets();
@@ -146,7 +156,7 @@ public final class IsoConfigScreen extends Screen {
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         gui.fill(0, 0, this.width, this.height, 0x76070A0E);
-        gui.fill(panelX, panelY, panelX + panelWidth, panelY + 386, 0xF014171C);
+        gui.fill(panelX, panelY, panelX + panelWidth, panelY + PANEL_HEIGHT, 0xF014171C);
         gui.fill(panelX, panelY, panelX + panelWidth, panelY + 2, 0xFFF5A524);
         gui.fill(panelX + 16, panelY + 50, panelX + panelWidth - 16, panelY + 51, 0xFF343B45);
         gui.drawString(this.font, "ISOCRAFT", panelX + 18, panelY + 16, 0xFFF5A524, false);
@@ -161,7 +171,7 @@ public final class IsoConfigScreen extends Screen {
         }
         super.render(gui, mouseX, mouseY, partialTick);
         gui.drawString(this.font, "Ctrl + clique direito: mover  |  F6: abrir este painel  |  Z/X: girar",
-                panelX + 18, panelY + 365, 0xFF929BA7, false);
+                panelX + 18, panelY + PANEL_HEIGHT - 21, 0xFF929BA7, false);
     }
 
     @Override

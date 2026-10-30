@@ -49,6 +49,11 @@ public final class IsoConfig {
         public final ForgeConfigSpec.IntValue revealReach;
         public final ForgeConfigSpec.IntValue rebuildsPerTick;
 
+        // ---- HUD ----
+        public final ForgeConfigSpec.BooleanValue showNameplates;
+        public final ForgeConfigSpec.BooleanValue showHealthBars;
+        public final ForgeConfigSpec.IntValue nameplateRange;
+
         Values(ForgeConfigSpec.Builder b) {
             b.push("camera");
             enabledByDefault = b.comment("Liga o modo isometrico automaticamente ao entrar no mundo.")
@@ -105,6 +110,15 @@ public final class IsoConfig {
                     .defineInRange("revealReach", 48, 8, 120);
             rebuildsPerTick = b.comment("Maximo de secoes de chunk reconstruidas por tick pelo reveal.")
                     .defineInRange("rebuildsPerTick", 24, 1, 256);
+            b.pop();
+
+            b.push("hud");
+            showNameplates = b.comment("Mostra os nomes de criaturas hostis e da entidade selecionada.")
+                    .define("showNameplates", true);
+            showHealthBars = b.comment("Mostra barras e valores de vida nos nameplates.")
+                    .define("showHealthBars", true);
+            nameplateRange = b.comment("Distancia maxima, em blocos, para nameplates de criaturas hostis.")
+                    .defineInRange("nameplateRange", 20, 8, 48);
             b.pop();
         }
     }

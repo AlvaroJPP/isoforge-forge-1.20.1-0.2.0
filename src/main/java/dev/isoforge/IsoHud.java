@@ -33,7 +33,7 @@ public final class IsoHud {
     public static void onLivingRender(RenderLivingEvent.Post<?, ?> event) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (!IsoClient.active() || player == null || mc.level == null) return;
+        if (!IsoClient.active() || player == null || mc.level == null || !IsoConfig.V.showNameplates.get()) return;
 
         LivingEntity entity = event.getEntity();
         if (entity == player || !entity.isAlive() || entity.isInvisibleTo(player)
@@ -43,7 +43,7 @@ public final class IsoHud {
         if (!targeted && entity.getType().getCategory() != MobCategory.MONSTER) return;
 
         double distanceSqr = entity.distanceToSqr(player);
-        double maxDistance = targeted ? 28.0 : 20.0;
+        double maxDistance = IsoConfig.V.nameplateRange.get() + (targeted ? 8.0 : 0.0);
         if (distanceSqr > maxDistance * maxDistance) return;
 
         PoseStack pose = event.getPoseStack();
@@ -64,23 +64,25 @@ public final class IsoHud {
         font.drawInBatch(label, -font.width(label) * 0.5F, -2.0F, labelColor, true,
                 matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
 
-        float ratio = Mth.clamp(entity.getHealth() / Math.max(1.0F, entity.getMaxHealth()), 0.0F, 1.0F);
-        String background = "██████████";
-        int barWidth = font.width(background);
-        float barX = -barWidth * 0.5F;
-        font.drawInBatch(background, barX, 9.0F, 0xFF343B45, false,
-                matrix, buffers, Font.DisplayMode.NORMAL, 0x800A0D12, light);
+        if (IsoConfig.V.showHealthBars.get()) {
+            float ratio = Mth.clamp(entity.getHealth() / Math.max(1.0F, entity.getMaxHealth()), 0.0F, 1.0F);
+            String background = "██████████";
+            int barWidth = font.width(background);
+            float barX = -barWidth * 0.5F;
+            font.drawInBatch(background, barX, 9.0F, 0xFF343B45, false,
+                    matrix, buffers, Font.DisplayMode.NORMAL, 0x800A0D12, light);
 
-        int filled = Math.round(10.0F * ratio);
-        if (filled > 0) {
-            String foreground = "█".repeat(filled);
-            font.drawInBatch(foreground, barX, 9.0F, healthColor(ratio), false,
-                    matrix, buffers, Font.DisplayMode.NORMAL, 0, light);
+            int filled = Math.round(10.0F * ratio);
+            if (filled > 0) {
+                String foreground = "█".repeat(filled);
+                font.drawInBatch(foreground, barX, 9.0F, healthColor(ratio), false,
+                        matrix, buffers, Font.DisplayMode.NORMAL, 0, light);
+            }
+
+            String health = String.format("%.0f / %.0f", entity.getHealth(), entity.getMaxHealth());
+            font.drawInBatch(health, -font.width(health) * 0.5F, 19.0F, 0xFFD6DCE4, true,
+                    matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
         }
-
-        String health = String.format("%.0f / %.0f", entity.getHealth(), entity.getMaxHealth());
-        font.drawInBatch(health, -font.width(health) * 0.5F, 19.0F, 0xFFD6DCE4, true,
-                matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
         pose.popPose();
     }
 
