@@ -81,7 +81,7 @@ public final class IsoClickToMove {
         if (level == null || player == null || point == null) return false;
 
         BlockPos start = player.blockPosition();
-        List<BlockPos> route = findPath(level, start, findNearbyGoals(level, point));
+        List<BlockPos> route = findPath(level, start, findNearbyGoals(level, point, start), point);
         if (route.size() <= 1) return false;
 
         path.addAll(route);
@@ -181,7 +181,7 @@ public final class IsoClickToMove {
         if (target == null) return false;
         Vec3 destinationPoint = new Vec3(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
         List<BlockPos> replacement = findPath(level, player.blockPosition(),
-                findNearbyGoals(level, destinationPoint));
+                findNearbyGoals(level, destinationPoint, player.blockPosition()), destinationPoint);
         if (replacement.size() <= 1) return false;
 
         path.clear();
@@ -218,7 +218,7 @@ public final class IsoClickToMove {
      * Cria um conjunto pequeno de destinos candidatos em volta do clique.
      * O A* escolhe o primeiro destino desse conjunto que realmente consegue alcancar.
      */
-    private static Set<Long> findNearbyGoals(ClientLevel level, Vec3 point) {
+    private static Set<Long> findNearbyGoals(ClientLevel level, Vec3 point, BlockPos start) {
         int x = (int) Math.floor(point.x);
         int y = (int) Math.floor(point.y);
         int z = (int) Math.floor(point.z);
@@ -232,21 +232,14 @@ public final class IsoClickToMove {
                 }
             }
         }
+        goals.remove(start.asLong());
         return goals;
     }
 
-    private static List<BlockPos> findPath(ClientLevel level, BlockPos start, Set<Long> goals) {
+    private static List<BlockPos> findPath(ClientLevel level, BlockPos start, Set<Long> goals, Vec3 reference) {
         if (goals.isEmpty()) return List.of();
         long startKey = start.asLong();
         if (goals.contains(startKey)) return List.of(start);
-
-        // Usa o centro da regiao de destino para estimar a distancia sem favorecer
-        // um candidato bloqueado escolhido apenas pela proximidade do clique.
-        Vec3 reference = goals.stream()
-                .map(IsoClickToMove::unpack)
-                .map(pos -> new Vec3(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5))
-                .min(Comparator.comparingDouble(pos -> horizontalDistanceSquared(pos, start)))
-                .orElse(Vec3.ZERO);
 
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(Node::score));
         Map<Long, Double> costs = new HashMap<>();
@@ -320,7 +313,9 @@ public final class IsoClickToMove {
         double diagonal = Math.min(dx, dz);
         double horizontal = diagonal * 1.41421356237 + Math.max(dx, dz) - diagonal;
         double vertical = Math.abs(from.getY() - to.y);
-        return horizontal + vertical * 1.2;
+        // Todo destino candidato fica dentro de 3 blocos na horizontal e 3 na vertical.
+        // Subtrair essa tolerancia mantem a estimativa admissivel para qualquer candidato.
+        return Math.max(0.0, horizontal - 4.25) + Math.max(0.0, vertical - 3.0) * 1.2;
     }
 
     private static List<BlockPos> reconstruct(long start, long goal, Map<Long, Long> parents) {
