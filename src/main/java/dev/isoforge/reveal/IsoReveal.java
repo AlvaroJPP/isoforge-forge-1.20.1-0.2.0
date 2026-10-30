@@ -51,7 +51,12 @@ public final class IsoReveal {
         if (!s.active()) return false;
         Minecraft mc = Minecraft.getInstance();
         if (e == mc.player || e == mc.getCameraEntity()) return false;
-        return s.hiddenByCeiling(Mth.floor(e.getX()), Mth.floor(e.getY()), Mth.floor(e.getZ()));
+        // Usa o centro vertical do corpo: entidades altas nao devem atravessar o teto
+        // so porque os pes ainda estao abaixo da linha de corte.
+        int x = Mth.floor(e.getX());
+        int y = Mth.floor(e.getY() + Math.min(e.getBbHeight() * 0.5, 1.0));
+        int z = Mth.floor(e.getZ());
+        return s.hiddenEntity(x, y, z);
     }
 
     public static void toggleUserEnabled() {
