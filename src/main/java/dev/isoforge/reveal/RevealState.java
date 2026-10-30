@@ -11,7 +11,7 @@ import java.util.Map;
  * Dois cortes:
  *  1) Teto: tudo com y >= cutY dentro de um circulo de raio {@code radius} em volta do jogador.
  *  2) Tubo de visao: funil que vai do jogador ate a camera, escondendo o que fica na frente dele
- *     (somente blocos acima dos pes do jogador).
+ *     (do nivel dos pes para cima, preservando o piso).
  */
 public record RevealState(
         boolean active,
@@ -59,7 +59,7 @@ public record RevealState(
     }
 
     public boolean hiddenByTube(int x, int y, int z) {
-        if (!active || y <= py) return false;
+        if (!active || y < py) return false;
         double rx = x + 0.5 - ax();
         double ry = y + 0.5 - ay();
         double rz = z + 0.5 - az();
@@ -97,7 +97,7 @@ public record RevealState(
         // tubo (meia diagonal de uma secao ~ 13.86)
         double cx = x0 + 8 - ax(), cy = y0 + 8 - ay(), cz = z0 + 8 - az();
         double s = cx * bx + cy * by + cz * bz;
-        if (s >= minAlong - 14.0 && s <= reach + 14.0 && y0 + 15 > py) {
+        if (s >= minAlong - 14.0 && s <= reach + 14.0 && y0 + 15 >= py) {
             double lat2 = cx * cx + cy * cy + cz * cz - s * s;
             double lim = rFar + 14.0;
             if (lat2 <= lim * lim) return true;
