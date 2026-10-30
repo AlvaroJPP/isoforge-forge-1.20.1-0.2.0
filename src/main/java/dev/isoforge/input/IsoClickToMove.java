@@ -143,7 +143,8 @@ public final class IsoClickToMove {
         }
 
         RouteStep next = path.get(1);
-        jumpRequested = next.jump() && player.onGround();
+        jumpRequested = (next.jump() && player.onGround())
+                || (player.isInWater() && next.position().feetY() > player.getY() + 0.1);
     }
 
     private static void advanceReachedWaypoints(LocalPlayer player) {
@@ -228,9 +229,9 @@ public final class IsoClickToMove {
                 for (double height : IsoNavigationRules.findStandHeights(level, tx, tz, point.y)) {
                     goals.add(NavPos.of(tx, height, tz).key());
                 }
-                for (int halfY = (int) Math.round(point.y * 2.0) - 4;
-                     halfY <= (int) Math.round(point.y * 2.0) + 2; halfY++) {
-                    NavPos water = new NavPos(tx, halfY, tz);
+                for (int quarterY = (int) Math.round(point.y * 4.0) - 8;
+                     quarterY <= (int) Math.round(point.y * 4.0) + 4; quarterY++) {
+                    NavPos water = new NavPos(tx, quarterY, tz);
                     if (IsoNavigationRules.isWaterNode(level, water.x(), water.feetY(), water.z())) goals.add(water.key());
                 }
             }
@@ -274,7 +275,7 @@ public final class IsoClickToMove {
                 }
 
                 if (swimming) {
-                    NavPos horizontal = new NavPos(nx, current.yHalf(), nz);
+                    NavPos horizontal = new NavPos(nx, current.yQuarter(), nz);
                     if (IsoNavigationRules.isWaterNode(level, horizontal.x(), horizontal.feetY(), horizontal.z())) {
                         addNode(open, costs, parents, jumpEdges, node, horizontal,
                                 (diagonal ? 1.41421356237 : 1.0) + 0.35, false, reference);
@@ -299,11 +300,11 @@ public final class IsoClickToMove {
             }
 
             if (swimming) {
-                for (int dyHalf : new int[]{-2, -1, 1, 2}) {
-                    NavPos next = new NavPos(current.x(), current.yHalf() + dyHalf, current.z());
+                for (int dyQuarter : new int[]{-4, -2, -1, 1, 2, 4}) {
+                    NavPos next = new NavPos(current.x(), current.yQuarter() + dyQuarter, current.z());
                     if (IsoNavigationRules.isWaterNode(level, next.x(), next.feetY(), next.z())) {
                         addNode(open, costs, parents, jumpEdges, node, next,
-                                Math.abs(dyHalf) * 0.55, false, reference);
+                                Math.abs(dyQuarter) * 0.55, false, reference);
                     }
                 }
             } else {
@@ -382,14 +383,14 @@ public final class IsoClickToMove {
         return result;
     }
 
-    private record NavPos(int x, int yHalf, int z) {
+    private record NavPos(int x, int yQuarter, int z) {
         static NavPos from(Vec3 position) {
-            return new NavPos((int) Math.floor(position.x), (int) Math.round(position.y * 2.0),
+            return new NavPos((int) Math.floor(position.x), (int) Math.round(position.y * 4.0),
                     (int) Math.floor(position.z));
         }
 
         static NavPos of(int x, double feetY, int z) {
-            return new NavPos(x, (int) Math.round(feetY * 2.0), z);
+            return new NavPos(x, (int) Math.round(feetY * 4.0), z);
         }
 
         static NavPos fromKey(long key) {
@@ -397,12 +398,12 @@ public final class IsoClickToMove {
         }
 
         long key() {
-            // O campo Y do BlockPos e usado como unidade de meio bloco (double dentro dos limites vanilla).
-            return BlockPos.asLong(x, yHalf, z);
+            // O campo Y do BlockPos e usado como unidade de quarto de bloco (double dentro dos limites vanilla).
+            return BlockPos.asLong(x, yQuarter, z);
         }
 
         double feetY() {
-            return yHalf * 0.5;
+            return yQuarter * 0.25;
         }
 
         BlockPos blockPos() {

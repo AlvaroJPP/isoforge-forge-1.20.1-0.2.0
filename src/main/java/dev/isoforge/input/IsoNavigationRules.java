@@ -16,7 +16,7 @@ import java.util.TreeSet;
 
 /**
  * Geometria de navegacao baseada na superficie real de colisao.
- * Cada altura e quantizada em meios blocos, cobrindo lajes e os degraus das escadas vanilla.
+ * Cada altura e quantizada em quartos de bloco, cobrindo lajes e os degraus das escadas vanilla.
  */
 final class IsoNavigationRules {
     private static final double HALF_WIDTH = 0.30;
@@ -41,7 +41,7 @@ final class IsoNavigationRules {
                         || 0.5 < box.minZ - EPSILON || 0.5 > box.maxZ + EPSILON) continue;
                 double feetY = blockY + box.maxY;
                 if (Math.abs(feetY - aroundY) > 3.1) continue;
-                if (Math.abs(feetY * 2.0 - Math.rint(feetY * 2.0)) > 0.02) continue;
+                if (Math.abs(feetY * 4.0 - Math.rint(feetY * 4.0)) > 0.02) continue;
                 if (isStandable(level, new NavPoint(x, feetY, z))) heights.add(feetY);
             }
         }
