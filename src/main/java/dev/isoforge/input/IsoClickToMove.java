@@ -91,6 +91,12 @@ public final class IsoClickToMove {
         }
 
         BlockPos next = path.get(1);
+        // O mundo pode mudar depois do calculo (porta fechada, bloco colocado,
+        // pistao ou outro jogador). Nunca continue seguindo um proximo passo invalido.
+        if (!isWalkable(mc.level, next)) {
+            cancel();
+            return;
+        }
         jumpRequested = next.getY() > player.blockPosition().getY() && player.onGround();
     }
 
