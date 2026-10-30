@@ -76,7 +76,7 @@ Aumente `distance` no config para chegar mais perto do ortografico.
 - O detector de comodos e uma busca local simplificada; ainda nao reproduz a classificacao de salas/cavernas,
   handoffs de camera, mascaras espaciais e politicas topologicas completas da Fabric.
 - O HUD da Forge inclui estado da camera, alvo, vida/fome, painel de alvo, nameplates configuraveis e numeros de dano flutuantes detectados pela perda de vida no cliente. O jogador pode desligar nomes, barras ou numeros e ajustar o alcance no F6. Ainda nao inclui os orbes texturizados, loot beams, menus-bolha ou fotos/GIFs da Fabric.
-- Click-to-move usa A* 3D limitado, evita cortar cantos diagonalmente, considera o custo de subir/descer um bloco, escolhe um destino alcancavel perto do clique e recalcula quando o caminho bloqueia ou o jogador fica preso. Ainda nao atravessa fluidos, parkour ou quedas maiores que um bloco.
+- Click-to-move usa A* 3D limitado, evita cortar cantos diagonalmente, atravessa agua, realiza saltos curtos sobre lacunas de um bloco e permite descidas de ate tres blocos com coluna livre e pouso seguro. Tambem escolhe destinos alcancaveis perto do clique e recalcula quando o caminho bloqueia ou o jogador fica preso. Nao planeja lava, superfícies perigosas ou saltos longos.
 - A tela de configuracao ja altera opcoes em tempo real; ainda faltam abas, presets visuais e todos os controles avancados da Fabric.
 - Embeddium: o mixin alveja `me.jellysquid.mods.sodium.client.world.WorldSlice` (Embeddium 0.3.x / Rubidium).
   Se nao aplicar na sua versao, o log mostra e o reveal so funciona no renderizador vanilla.
@@ -94,7 +94,7 @@ texturizados, menus-bolha, gravacao de GIF e compatibilidade profunda com Sodium
 - Painel de configuracao em jogo (F6), com persistencia no TOML do cliente.
 - HUD ARPG com leitura de vida/fome, estado do reveal, zoom, yaw e indicador de mira.
 - Click-to-move opcional com Ctrl + clique direito e busca A* limitada a blocos caminhaveis.
-- Click-to-move valida os proximos tres passos em intervalos curtos, evita diagonais por cantos bloqueados e recalcula a rota quando uma porta/bloco muda ou quando o jogador deixa de progredir. O destino clicado e ajustado para uma superficie caminhavel realmente alcancavel.
+- Click-to-move valida os proximos tres passos em intervalos curtos, evita diagonais por cantos bloqueados, atravessa volumes de agua, salta uma lacuna de um bloco e aceita quedas seguras de ate tres blocos. Recalcula a rota quando uma porta/bloco muda ou quando o jogador deixa de progredir.
 - HUD mostra o destino e a quantidade de passos restantes durante o click-to-move; ao mirar em uma entidade viva, exibe nome, vida e distancia.
 - Nameplates ARPG no mundo exibem nome para criaturas hostis proximas e para qualquer entidade viva selecionada, respeitando o Room Reveal. Barras aparecem quando a criatura recebe dano ou e selecionada; numeros de vida ficam reservados ao alvo e a criaturas muito feridas.
 - Numeros de dano flutuantes surgem ao detectar reducao real de HP no cliente, acumulam golpes no mesmo tick e desaparecem gradualmente. Podem ser desligados pelo F6. Visibilidade, barras e alcance dos nameplates continuam configuraveis.
