@@ -313,9 +313,9 @@ public final class IsoClickToMove {
         double diagonal = Math.min(dx, dz);
         double horizontal = diagonal * 1.41421356237 + Math.max(dx, dz) - diagonal;
         double vertical = Math.abs(from.getY() - to.y);
-        // Todo destino candidato fica dentro de 3 blocos na horizontal e 3 na vertical.
-        // Subtrair essa tolerancia mantem a estimativa admissivel para qualquer candidato.
-        return Math.max(0.0, horizontal - 4.25) + Math.max(0.0, vertical - 3.0) * 1.2;
+        // A distancia residual ate o ponto clicado desempata superficies alcancaveis:
+        // uma rota nao deve terminar no primeiro chao proximo se houver outro junto ao clique.
+        return horizontal + vertical * 1.2;
     }
 
     private static List<BlockPos> reconstruct(long start, long goal, Map<Long, Long> parents) {
