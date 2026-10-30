@@ -41,6 +41,8 @@ final class IsoNavigationRules {
         BlockPos top = new BlockPos(feet.getX(), topY, feet.getZ());
         if (level.isOutsideBuildHeight(top) || !level.hasChunkAt(top)) return false;
         if (isHazardousFluid(level, feet)) return false;
+        if (isDangerousBlock(level.getBlockState(feet).getBlock())
+                || isDangerousBlock(level.getBlockState(feet.above()).getBlock())) return false;
 
         // Testa a caixa real aproximada do jogador, nao apenas se os blocos estao vazios.
         // Assim, portas abertas e formas parciais deixam de bloquear quando ha espaco real.
