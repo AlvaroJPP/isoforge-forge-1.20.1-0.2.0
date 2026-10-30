@@ -116,6 +116,7 @@ public final class IsoHud {
         if (destination != null) {
             String route = "DESTINO  " + destination.getX() + ", " + destination.getY() + ", "
                     + destination.getZ() + "  ·  " + IsoClickToMove.remainingNodes() + " passos";
+            route = mc.font.plainSubstrByWidth(route, width - 18);
             gui.drawString(mc.font, route, x + 9, y + 46, 0xFFF5C16A, false);
         }
 
@@ -145,19 +146,23 @@ public final class IsoHud {
         if (!(mc.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof LivingEntity target)
                 || !target.isAlive() || target == mc.player) return;
 
-        int width = Math.max(112, Math.min(220, mc.font.width(target.getDisplayName()) + 76));
+        String titlePrefix = "ALVO  ·  ";
+        String detail = String.format("%.1f / %.1f HP  ·  %.1fm", target.getHealth(),
+                target.getMaxHealth(), Math.sqrt(target.distanceToSqr(mc.player)));
+        int width = Math.max(148, Math.min(260,
+                Math.max(mc.font.width(titlePrefix) + mc.font.width(target.getDisplayName()) + 16,
+                        mc.font.width(detail) + 16)));
         int x = gui.guiWidth() - width - 10;
         int y = 10;
         gui.fill(x, y, x + width, y + 42, 0xC90E1116);
         gui.fill(x, y, x + width, y + 2, 0xFFF5A524);
-        String name = mc.font.plainSubstrByWidth(target.getDisplayName().getString(), width - 18);
-        gui.drawString(mc.font, "ALVO  ·  " + name, x + 8, y + 6, 0xFFFFC15A, false);
+        String name = mc.font.plainSubstrByWidth(target.getDisplayName().getString(),
+                width - mc.font.width(titlePrefix) - 16);
+        gui.drawString(mc.font, titlePrefix + name, x + 8, y + 6, 0xFFFFC15A, false);
         float ratio = Mth.clamp(target.getHealth() / Math.max(1.0F, target.getMaxHealth()), 0.0F, 1.0F);
         gui.fill(x + 8, y + 19, x + width - 8, y + 25, 0xFF303741);
         int healthWidth = Math.max(0, Math.min(width - 16, Math.round((width - 16) * ratio)));
         if (healthWidth > 0) gui.fill(x + 8, y + 19, x + 8 + healthWidth, y + 25, healthColor(ratio));
-        String detail = String.format("%.1f / %.1f HP  ·  %.1fm", target.getHealth(),
-                target.getMaxHealth(), Math.sqrt(target.distanceToSqr(mc.player)));
         gui.drawString(mc.font, detail, x + 8, y + 29, 0xFF9EA8B5, false);
     }
 
