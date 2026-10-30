@@ -55,7 +55,8 @@ foram reimplementadas aqui.
 
 A busca pelo comodo e limitada por `ceilingRadius` e `ceilingScan`, atualizada quando a ancora se move e,
 no maximo, a cada 10 ticks. Para limitar o custo em espacos muito abertos, ela interrompe a analise acima de
-65.536 celulas e usa o fallback.
+65.536 celulas. Leituras incompletas (por limite ou area ainda nao carregada) nao publicam mascaras parciais:
+uma falha isolada preserva o ultimo corte por alguns instantes; falhas consecutivas descartam a mascara antiga.
 
 ## IMPORTANTE para Embeddium / Rubidium
 
