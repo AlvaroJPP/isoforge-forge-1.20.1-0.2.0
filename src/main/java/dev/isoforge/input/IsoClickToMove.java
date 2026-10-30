@@ -18,21 +18,22 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 /**
- * Navegacao ARPG client-side.
- * O A* trabalha em uma grade 3D limitada e combina caminhada, natacao,
- * saltos curtos sobre lacunas e descidas com pouso seguro.
- * Nao envia pacotes nem altera o servidor.
+ * Navegacao ARPG client-side com nos em meios blocos.
+ * A altura fracionaria permite representar superficies de slabs e escadas sem
+ * arredondar o personagem para dentro do proprio bloco de apoio.
  */
 public final class IsoClickToMove {
-    private static final int MAX_EXPANSIONS = 12_000;
+    private static final int MAX_EXPANSIONS = 14_000;
     private static final int MAX_ROUTE_RADIUS = 64;
-    private static final int MAX_SAFE_DROP = 3;
     private static final int REPLAN_STUCK_TICKS = 18;
     private static final int REPLAN_COOLDOWN_TICKS = 20;
     private static final int ROUTE_CHECK_INTERVAL = 5;
     private static final int ROUTE_LOOKAHEAD = 3;
     private static final double WAYPOINT_RADIUS_SQUARED = 0.30 * 0.30;
     private static final double PROGRESS_DISTANCE_SQUARED = 0.20 * 0.20;
+    private static final double MAX_WALK_STEP = 0.60;
+    private static final double MAX_JUMP_STEP = 1.05;
+    private static final double MAX_SAFE_DROP = 3.0;
 
     private static final int[][] DIRECTIONS = {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
@@ -43,7 +44,7 @@ public final class IsoClickToMove {
     };
 
     private static final List<RouteStep> path = new ArrayList<>();
-    private static BlockPos target;
+    private static NavPos target;
     private static boolean active;
     private static boolean jumpRequested;
     private static Vec3 lastProgressPosition;
@@ -57,12 +58,11 @@ public final class IsoClickToMove {
         return active;
     }
 
-    /** Destino atual da navegacao automatica, ou null quando inativa. */
+    /** Destino em coordenadas de bloco, para HUD e integracoes existentes. */
     public static BlockPos target() {
-        return active ? target : null;
+        return active && target != null ? target.blockPos() : null;
     }
 
-    /** Quantidade de nos restantes na rota, incluindo a posicao atual. */
     public static int remainingNodes() {
         return active ? path.size() : 0;
     }
@@ -78,12 +78,11 @@ public final class IsoClickToMove {
         repathCooldown = 0;
     }
 
-    /** Cria uma rota ate uma superficie caminhavel ou um volume de agua alcancavel. */
     public static boolean setTarget(ClientLevel level, LocalPlayer player, Vec3 point) {
         cancel();
         if (level == null || player == null || point == null) return false;
 
-        BlockPos start = player.blockPosition();
+        NavPos start = NavPos.from(player.position());
         List<RouteStep> route = findPath(level, start, findNearbyGoals(level, point, start), point);
         if (route.size() <= 1) return false;
 
@@ -94,7 +93,6 @@ public final class IsoClickToMove {
         return true;
     }
 
-    /** Avanca a rota, valida os proximos passos e tenta recuperar movimentos interrompidos. */
     public static void tick(Minecraft mc) {
         if (!active) return;
         LocalPlayer player = mc.player;
@@ -103,7 +101,7 @@ public final class IsoClickToMove {
             return;
         }
 
-        // Teclado manual tem prioridade; Shift tambem cancela para permitir agachar normalmente.
+        // O teclado manual sempre tem prioridade sobre o click-to-move.
         if (mc.options.keyUp.isDown() || mc.options.keyDown.isDown()
                 || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown()
                 || mc.options.keyShift.isDown()) {
@@ -145,19 +143,18 @@ public final class IsoClickToMove {
         }
 
         RouteStep next = path.get(1);
-        int currentY = player.blockPosition().getY();
-        jumpRequested = (next.jump() && player.onGround())
-                || (next.position().getY() > currentY && (player.onGround() || player.isInWater()));
+        double rise = next.position().feetY() - player.getY();
+        jumpRequested = next.jump() && player.onGround()
+                && (rise > MAX_WALK_STEP || next.jump());
     }
 
     private static void advanceReachedWaypoints(LocalPlayer player) {
         while (path.size() > 1) {
-            BlockPos next = path.get(1).position();
-            double dx = next.getX() + 0.5 - player.getX();
-            double dz = next.getZ() + 0.5 - player.getZ();
-            double dy = Math.abs(next.getY() - player.getY());
-            // Nao avanca para o proximo waypoint enquanto ainda esta caindo ou subindo na agua.
-            if (dx * dx + dz * dz > WAYPOINT_RADIUS_SQUARED || dy > 0.70) break;
+            NavPos next = path.get(1).position();
+            double dx = next.x() + 0.5 - player.getX();
+            double dz = next.z() + 0.5 - player.getZ();
+            double dy = Math.abs(next.feetY() - player.getY());
+            if (dx * dx + dz * dz > WAYPOINT_RADIUS_SQUARED || dy > 0.72) break;
             path.remove(0);
         }
     }
@@ -165,9 +162,7 @@ public final class IsoClickToMove {
     private static boolean hasBlockedWaypoint(ClientLevel level) {
         int end = Math.min(path.size(), ROUTE_LOOKAHEAD + 1);
         for (int i = 1; i < end; i++) {
-            RouteStep step = path.get(i);
-            BlockPos from = path.get(i - 1).position();
-            if (!isValidStep(level, from, step)) return true;
+            if (!isValidStep(level, path.get(i - 1).position(), path.get(i))) return true;
         }
         return false;
     }
@@ -183,15 +178,12 @@ public final class IsoClickToMove {
         }
     }
 
-    /**
-     * Recalcula preservando o destino. Se o ponto ficou bloqueado, procura outra
-     * superficie alcançavel perto dele, sem redirecionar para o jogador atual.
-     */
     private static boolean rebuildPath(ClientLevel level, LocalPlayer player) {
         if (target == null) return false;
-        Vec3 destinationPoint = new Vec3(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
-        List<RouteStep> replacement = findPath(level, player.blockPosition(),
-                findNearbyGoals(level, destinationPoint, player.blockPosition()), destinationPoint);
+        Vec3 destination = target.center();
+        NavPos start = NavPos.from(player.position());
+        List<RouteStep> replacement = findPath(level, start,
+                findNearbyGoals(level, destination, start), destination);
         if (replacement.size() <= 1) return false;
 
         path.clear();
@@ -202,13 +194,13 @@ public final class IsoClickToMove {
         return true;
     }
 
-    /** Substitui os impulsos de teclado enquanto a rota estiver ativa. */
     public static boolean applyInput(Input input, LocalPlayer player) {
         if (!active || path.size() < 2) return false;
         RouteStep next = path.get(1);
-        BlockPos destination = next.position();
-        double dx = destination.getX() + 0.5 - player.getX();
-        double dz = destination.getZ() + 0.5 - player.getZ();
+        NavPos destination = next.position();
+        double dx = destination.x() + 0.5 - player.getX();
+        double dz = destination.z() + 0.5 - player.getZ();
+
         if (dx * dx + dz * dz < 1.0E-5) {
             input.leftImpulse = 0.0F;
             input.forwardImpulse = 0.0F;
@@ -221,40 +213,37 @@ public final class IsoClickToMove {
         }
 
         input.jumping = jumpRequested;
-        // No mergulho, Shift faz o jogador descer; nao e aplicado em terra.
-        if (player.isInWater() && destination.getY() < player.blockPosition().getY()) {
+        if (player.isInWater() && destination.feetY() < player.getY() - 0.1) {
             input.shiftKeyDown = true;
         }
         return true;
     }
 
-    /**
-     * Cria candidatos dentro da regiao clicada. Superficies perigosas e lava
-     * nunca entram no conjunto de destinos.
-     */
-    private static Set<Long> findNearbyGoals(ClientLevel level, Vec3 point, BlockPos start) {
+    private static Set<Long> findNearbyGoals(ClientLevel level, Vec3 point, NavPos start) {
         int x = (int) Math.floor(point.x);
-        int y = (int) Math.floor(point.y);
         int z = (int) Math.floor(point.z);
         Set<Long> goals = new HashSet<>();
-
         for (int dx = -3; dx <= 3; dx++) {
             for (int dz = -3; dz <= 3; dz++) {
-                for (int dy = 2; dy >= -3; dy--) {
-                    BlockPos candidate = new BlockPos(x + dx, y + dy, z + dz);
-                    if (IsoNavigationRules.isTraversable(level, candidate)) goals.add(candidate.asLong());
+                int tx = x + dx;
+                int tz = z + dz;
+                for (double height : IsoNavigationRules.findStandHeights(level, tx, tz, point.y)) {
+                    goals.add(NavPos.of(tx, height, tz).key());
+                }
+                for (int halfY = (int) Math.round(point.y * 2.0) - 4;
+                     halfY <= (int) Math.round(point.y * 2.0) + 2; halfY++) {
+                    NavPos water = new NavPos(tx, halfY, tz);
+                    if (IsoNavigationRules.isWaterNode(level, water)) goals.add(water.key());
                 }
             }
         }
-        goals.remove(start.asLong());
+        goals.remove(start.key());
         return goals;
     }
 
-    private static List<RouteStep> findPath(ClientLevel level, BlockPos start, Set<Long> goals, Vec3 reference) {
+    private static List<RouteStep> findPath(ClientLevel level, NavPos start, Set<Long> goals, Vec3 reference) {
         if (goals.isEmpty()) return List.of();
-        long startKey = start.asLong();
-        if (goals.contains(startKey)) return List.of(new RouteStep(start, false));
-
+        long startKey = start.key();
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(Node::score));
         Map<Long, Double> costs = new HashMap<>();
         Map<Long, Long> parents = new HashMap<>();
@@ -269,54 +258,67 @@ public final class IsoClickToMove {
             if (known == null || node.cost() > known + 1.0E-5) continue;
             if (goals.contains(node.key())) return reconstruct(startKey, node.key(), parents, jumpEdges);
 
-            BlockPos current = unpack(node.key());
-            boolean swimming = IsoNavigationRules.isWaterCell(level, current);
+            NavPos current = NavPos.fromKey(node.key());
+            boolean swimming = IsoNavigationRules.isWaterNode(level, current);
+            double currentY = current.feetY();
 
             for (int[] direction : DIRECTIONS) {
-                int nx = current.getX() + direction[0];
-                int nz = current.getZ() + direction[1];
-                if (Math.abs(nx - start.getX()) > MAX_ROUTE_RADIUS
-                        || Math.abs(nz - start.getZ()) > MAX_ROUTE_RADIUS) continue;
+                int nx = current.x() + direction[0];
+                int nz = current.z() + direction[1];
+                if (Math.abs(nx - start.x()) > MAX_ROUTE_RADIUS
+                        || Math.abs(nz - start.z()) > MAX_ROUTE_RADIUS) continue;
 
                 boolean diagonal = direction[0] != 0 && direction[1] != 0;
-                if (diagonal) {
-                    BlockPos sideX = new BlockPos(current.getX() + direction[0], current.getY(), current.getZ());
-                    BlockPos sideZ = new BlockPos(current.getX(), current.getY(), current.getZ() + direction[1]);
-                    if (!IsoNavigationRules.isTraversable(level, sideX) || !IsoNavigationRules.isTraversable(level, sideZ)) continue;
+                if (diagonal && (!IsoNavigationRules.hasBodyClearance(level, nx, nz, currentY)
+                        || !IsoNavigationRules.hasBodyClearance(level, current.x(), nz, currentY)
+                        || !IsoNavigationRules.hasBodyClearance(level, nx, current.z(), currentY))) {
+                    continue;
                 }
 
-                int[] verticalMoves = swimming ? new int[]{0} : new int[]{0, 1, -1, -2, -3};
-                for (int dy : verticalMoves) {
-                    BlockPos next = new BlockPos(nx, current.getY() + dy, nz);
-                    if (!IsoNavigationRules.isTraversable(level, next)) continue;
-                    if (dy < -1 && !IsoNavigationRules.canDropSafely(level, current, next)) continue;
-
-                    double stepCost = diagonal ? 1.41421356237 : 1.0;
-                    if (dy > 0) stepCost += 0.85;       // subir exige salto
-                    else if (dy == -1) stepCost += 1.65;
-                    else if (dy < -1) stepCost += 1.2 + Math.abs(dy) * 0.75;
-                    if (IsoNavigationRules.isWaterCell(level, next)) stepCost += 0.35;
-                    addNode(open, costs, parents, jumpEdges, node, next, stepCost, false, reference);
-                }
-            }
-
-            // Movimentacao vertical em coluna de agua: flutuar e mergulhar.
-            if (swimming) {
-                for (int dy : new int[]{1, -1}) {
-                    BlockPos next = current.offset(0, dy, 0);
-                    if (!IsoNavigationRules.isWaterCell(level, next)) continue;
-                    addNode(open, costs, parents, jumpEdges, node, next, 1.15, false, reference);
-                }
-            }
-
-            // Parkour curto: um unico bloco sem apoio entre a saida e o pouso.
-            if (!swimming) {
-                for (int[] direction : CARDINAL_DIRECTIONS) {
-                    BlockPos landing = current.offset(direction[0] * 2, 0, direction[1] * 2);
-                    if (!IsoNavigationRules.isGroundCell(level, landing) || !IsoNavigationRules.isJumpArcClear(level, current, direction[0], direction[1])) {
-                        continue;
+                if (swimming) {
+                    NavPos horizontal = new NavPos(nx, current.yHalf(), nz);
+                    if (IsoNavigationRules.isWaterNode(level, horizontal)) {
+                        addNode(open, costs, parents, jumpEdges, node, horizontal,
+                                (diagonal ? 1.41421356237 : 1.0) + 0.35, false, reference);
                     }
-                    addNode(open, costs, parents, jumpEdges, node, landing, 2.85, true, reference);
+                    continue;
+                }
+
+                for (double surface : IsoNavigationRules.findStandHeights(level, nx, nz, currentY)) {
+                    NavPos next = NavPos.of(nx, surface, nz);
+                    double delta = surface - currentY;
+                    if (delta > MAX_JUMP_STEP || delta < -MAX_SAFE_DROP) continue;
+
+                    boolean jump = delta > MAX_WALK_STEP;
+                    if (jump && !IsoNavigationRules.canJumpUp(level, current, next)) continue;
+                    if (delta < -MAX_WALK_STEP && !IsoNavigationRules.canDropSafely(level, current, next)) continue;
+
+                    double cost = diagonal ? 1.41421356237 : 1.0;
+                    cost += Math.abs(delta) * 0.9;
+                    if (jump) cost += 0.65;
+                    addNode(open, costs, parents, jumpEdges, node, next, cost, jump, reference);
+                }
+            }
+
+            if (swimming) {
+                for (int dyHalf : new int[]{-2, -1, 1, 2}) {
+                    NavPos next = new NavPos(current.x(), current.yHalf() + dyHalf, current.z());
+                    if (IsoNavigationRules.isWaterNode(level, next)) {
+                        addNode(open, costs, parents, jumpEdges, node, next,
+                                Math.abs(dyHalf) * 0.55, false, reference);
+                    }
+                }
+            } else {
+                // Salto curto: atravessa uma lacuna de um bloco e pousa em superficie real.
+                for (int[] direction : CARDINAL_DIRECTIONS) {
+                    int lx = current.x() + direction[0] * 2;
+                    int lz = current.z() + direction[1] * 2;
+                    for (double landingHeight : IsoNavigationRules.findStandHeights(level, lx, lz, currentY)) {
+                        if (Math.abs(landingHeight - currentY) > 0.5) continue;
+                        NavPos landing = NavPos.of(lx, landingHeight, lz);
+                        if (!IsoNavigationRules.isJumpArcClear(level, current, landing, direction[0], direction[1])) continue;
+                        addNode(open, costs, parents, jumpEdges, node, landing, 2.85, true, reference);
+                    }
                 }
             }
         }
@@ -324,10 +326,10 @@ public final class IsoClickToMove {
     }
 
     private static void addNode(PriorityQueue<Node> open, Map<Long, Double> costs,
-                                Map<Long, Long> parents, Map<Long, Boolean> jumpEdges, Node from, BlockPos next,
-                                double stepCost, boolean jump, Vec3 reference) {
+                                Map<Long, Long> parents, Map<Long, Boolean> jumpEdges, Node from,
+                                NavPos next, double stepCost, boolean jump, Vec3 reference) {
         double nextCost = from.cost() + stepCost;
-        long nextKey = next.asLong();
+        long nextKey = next.key();
         double previous = costs.getOrDefault(nextKey, Double.MAX_VALUE);
         if (nextCost >= previous) return;
         costs.put(nextKey, nextCost);
@@ -336,57 +338,85 @@ public final class IsoClickToMove {
         open.add(new Node(nextKey, nextCost, heuristic(next, reference)));
     }
 
-    private static boolean isValidStep(ClientLevel level, BlockPos from, RouteStep step) {
-        BlockPos to = step.position();
-        if (step.jump()) {
-            int dx = to.getX() - from.getX();
-            int dz = to.getZ() - from.getZ();
-            return IsoNavigationRules.isGroundCell(level, to) && Math.abs(dx) + Math.abs(dz) == 2
-                    && IsoNavigationRules.isJumpArcClear(level, from, Integer.signum(dx), Integer.signum(dz));
+    private static boolean isValidStep(ClientLevel level, NavPos from, RouteStep step) {
+        NavPos to = step.position();
+        if (step.jump() && Math.abs(to.x() - from.x()) + Math.abs(to.z() - from.z()) == 2) {
+            int dx = Integer.signum(to.x() - from.x());
+            int dz = Integer.signum(to.z() - from.z());
+            return IsoNavigationRules.isJumpArcClear(level, from, to, dx, dz);
         }
-        if (from.getY() - to.getY() > 1) return IsoNavigationRules.canDropSafely(level, from, to);
-        return IsoNavigationRules.isTraversable(level, to);
+        if (!IsoNavigationRules.isStandable(level, to)) return false;
+        double delta = to.feetY() - from.feetY();
+        if (delta < -MAX_WALK_STEP) return IsoNavigationRules.canDropSafely(level, from, to);
+        if (delta > MAX_WALK_STEP) return step.jump() && IsoNavigationRules.canJumpUp(level, from, to);
+        return true;
     }
 
-    private static double heuristic(BlockPos from, Vec3 to) {
-        double dx = Math.abs(from.getX() + 0.5 - to.x);
-        double dz = Math.abs(from.getZ() + 0.5 - to.z);
+    private static double heuristic(NavPos from, Vec3 to) {
+        double dx = Math.abs(from.x() + 0.5 - to.x);
+        double dz = Math.abs(from.z() + 0.5 - to.z);
         double diagonal = Math.min(dx, dz);
         double horizontal = diagonal * 1.41421356237 + Math.max(dx, dz) - diagonal;
-        double vertical = Math.abs(from.getY() - to.y);
-        return horizontal + vertical * 1.2;
+        return horizontal + Math.abs(from.feetY() - to.y) * 1.1;
     }
 
     private static List<RouteStep> reconstruct(long start, long goal, Map<Long, Long> parents,
-                                                       Map<Long, Boolean> jumpEdges) {
-        List<BlockPos> positions = new ArrayList<>();
+                                               Map<Long, Boolean> jumpEdges) {
+        List<NavPos> positions = new ArrayList<>();
         long cursor = goal;
-        positions.add(unpack(cursor));
+        positions.add(NavPos.fromKey(cursor));
         int guard = 0;
         while (cursor != start && guard++ < MAX_EXPANSIONS) {
             Long parent = parents.get(cursor);
             if (parent == null) return List.of();
             cursor = parent;
-            positions.add(unpack(cursor));
+            positions.add(NavPos.fromKey(cursor));
         }
         if (cursor != start) return List.of();
         Collections.reverse(positions);
 
         List<RouteStep> result = new ArrayList<>(positions.size());
         for (int i = 0; i < positions.size(); i++) {
-            BlockPos position = positions.get(i);
-            boolean jump = i > 0 && jumpEdges.getOrDefault(position.asLong(), false);
+            NavPos position = positions.get(i);
+            boolean jump = i > 0 && jumpEdges.getOrDefault(position.key(), false);
             result.add(new RouteStep(position, jump));
         }
         return result;
     }
 
-    private static BlockPos unpack(long packed) {
-        return new BlockPos(BlockPos.getX(packed), BlockPos.getY(packed), BlockPos.getZ(packed));
+    private record NavPos(int x, int yHalf, int z) {
+        static NavPos from(Vec3 position) {
+            return new NavPos((int) Math.floor(position.x), (int) Math.round(position.y * 2.0),
+                    (int) Math.floor(position.z));
+        }
+
+        static NavPos of(int x, double feetY, int z) {
+            return new NavPos(x, (int) Math.round(feetY * 2.0), z);
+        }
+
+        static NavPos fromKey(long key) {
+            return new NavPos(BlockPos.getX(key), BlockPos.getY(key), BlockPos.getZ(key));
+        }
+
+        long key() {
+            // O campo Y do BlockPos e usado como unidade de meio bloco (double dentro dos limites vanilla).
+            return BlockPos.asLong(x, yHalf, z);
+        }
+
+        double feetY() {
+            return yHalf * 0.5;
+        }
+
+        BlockPos blockPos() {
+            return BlockPos.containing(x + 0.5, feetY(), z + 0.5);
+        }
+
+        Vec3 center() {
+            return new Vec3(x + 0.5, feetY(), z + 0.5);
+        }
     }
 
-    private record RouteStep(BlockPos position, boolean jump) { }
-
+    private record RouteStep(NavPos position, boolean jump) {}
     private record Node(long key, double cost, double estimate) {
         double score() { return cost + estimate; }
     }
