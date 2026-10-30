@@ -261,6 +261,7 @@ public final class IsoClickToMove {
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(Node::score));
         Map<Long, Double> costs = new HashMap<>();
         Map<Long, Long> parents = new HashMap<>();
+        Map<Long, Boolean> jumpEdges = new HashMap<>();
         open.add(new Node(startKey, 0.0, heuristic(start, reference)));
         costs.put(startKey, 0.0);
 
@@ -269,7 +270,7 @@ public final class IsoClickToMove {
             Node node = open.poll();
             Double known = costs.get(node.key());
             if (known == null || node.cost() > known + 1.0E-5) continue;
-            if (goals.contains(node.key())) return reconstruct(startKey, node.key(), parents);
+            if (goals.contains(node.key())) return reconstruct(startKey, node.key(), parents, jumpEdges);
 
             BlockPos current = unpack(node.key());
             boolean swimming = isWaterCell(level, current);
@@ -298,7 +299,7 @@ public final class IsoClickToMove {
                     else if (dy == -1) stepCost += 1.65;
                     else if (dy < -1) stepCost += 1.2 + Math.abs(dy) * 0.75;
                     if (isWaterCell(level, next)) stepCost += 0.35;
-                    addNode(open, costs, parents, node, next, stepCost, reference);
+                    addNode(open, costs, parents, jumpEdges, node, next, stepCost, false, reference);
                 }
             }
 
@@ -307,7 +308,7 @@ public final class IsoClickToMove {
                 for (int dy : new int[]{1, -1}) {
                     BlockPos next = current.offset(0, dy, 0);
                     if (!isWaterCell(level, next)) continue;
-                    addNode(open, costs, parents, node, next, 1.15, reference);
+                    addNode(open, costs, parents, jumpEdges, node, next, 1.15, false, reference);
                 }
             }
 
@@ -318,7 +319,7 @@ public final class IsoClickToMove {
                     if (!isGroundCell(level, landing) || !isJumpArcClear(level, current, direction[0], direction[1])) {
                         continue;
                     }
-                    addNode(open, costs, parents, node, landing, 2.85, reference);
+                    addNode(open, costs, parents, jumpEdges, node, landing, 2.85, true, reference);
                 }
             }
         }
@@ -326,14 +327,15 @@ public final class IsoClickToMove {
     }
 
     private static void addNode(PriorityQueue<Node> open, Map<Long, Double> costs,
-                                Map<Long, Long> parents, Node from, BlockPos next,
-                                double stepCost, Vec3 reference) {
+                                Map<Long, Long> parents, Map<Long, Boolean> jumpEdges, Node from, BlockPos next,
+                                double stepCost, boolean jump, Vec3 reference) {
         double nextCost = from.cost() + stepCost;
         long nextKey = next.asLong();
         double previous = costs.getOrDefault(nextKey, Double.MAX_VALUE);
         if (nextCost >= previous) return;
         costs.put(nextKey, nextCost);
         parents.put(nextKey, from.key());
+        jumpEdges.put(nextKey, jump);
         open.add(new Node(nextKey, nextCost, heuristic(next, reference)));
     }
 
@@ -427,7 +429,8 @@ public final class IsoClickToMove {
         return horizontal + vertical * 1.2;
     }
 
-    private static List<RouteStep> reconstruct(long start, long goal, Map<Long, Long> parents) {
+    private static List<RouteStep> reconstruct(long start, long goal, Map<Long, Long> parents,
+                                                       Map<Long, Boolean> jumpEdges) {
         List<BlockPos> positions = new ArrayList<>();
         long cursor = goal;
         positions.add(unpack(cursor));
@@ -444,13 +447,7 @@ public final class IsoClickToMove {
         List<RouteStep> result = new ArrayList<>(positions.size());
         for (int i = 0; i < positions.size(); i++) {
             BlockPos position = positions.get(i);
-            boolean jump = false;
-            if (i > 0) {
-                BlockPos previous = positions.get(i - 1);
-                jump = previous.getY() == position.getY()
-                        && Math.abs(previous.getX() - position.getX())
-                        + Math.abs(previous.getZ() - position.getZ()) == 2;
-            }
+            boolean jump = i > 0 && jumpEdges.getOrDefault(position.asLong(), false);
             result.add(new RouteStep(position, jump));
         }
         return result;
