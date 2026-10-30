@@ -339,6 +339,8 @@ public final class IsoClickToMove {
 
     private static boolean isValidStep(ClientLevel level, NavPos from, RouteStep step) {
         NavPos to = step.position();
+        // Waypoints aquáticos nao exigem suporte solido; validamos o fluido e o volume do corpo.
+        if (IsoNavigationRules.isWaterNode(level, to.x(), to.feetY(), to.z())) return true;
         if (step.jump() && Math.abs(to.x() - from.x()) + Math.abs(to.z() - from.z()) == 2) {
             int dx = Integer.signum(to.x() - from.x());
             int dz = Integer.signum(to.z() - from.z());
