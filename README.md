@@ -91,6 +91,7 @@ texturizados, menus-bolha, gravacao de GIF e compatibilidade profunda com Sodium
 - Painel de configuracao em jogo (F6), com persistencia no TOML do cliente.
 - HUD ARPG com leitura de vida/fome, estado do reveal, zoom, yaw e indicador de mira.
 - Click-to-move opcional com Ctrl + clique direito e busca A* limitada a blocos caminhaveis.
+- Click-to-move revalida o proximo passo e tenta recalcular a rota quando o caminho muda (por exemplo, uma porta ou bloco bloqueando a passagem).
 - Rotacao continua por tecla pressionada, ajustes de pitch e teclas dedicadas de zoom.
 
 ## Se algo der errado
