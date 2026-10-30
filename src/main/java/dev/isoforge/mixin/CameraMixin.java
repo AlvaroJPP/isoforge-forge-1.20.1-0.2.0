@@ -25,7 +25,7 @@ public abstract class CameraMixin {
         if (!IsoClient.active() || entity == null) return;
 
         double yaw = CameraRig.yaw(partialTick);
-        double pitch = CameraRig.pitch();
+        double pitch = CameraRig.pitch(partialTick);
         Vec3 f = CameraRig.forward(yaw, pitch);
         double d = CameraRig.distance();
 

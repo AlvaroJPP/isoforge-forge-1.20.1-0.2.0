@@ -171,7 +171,7 @@ public final class IsoReveal {
         }
 
         // direcao jogador -> camera (usa o yaw ALVO, nao o animado, para nao recalcular a cada frame)
-        Vec3 f = CameraRig.forward(CameraRig.targetYaw(), CameraRig.pitch());
+        Vec3 f = CameraRig.forward(CameraRig.targetYaw(), CameraRig.targetPitch());
         double reach = Math.min(IsoConfig.V.revealReach.get(), CameraRig.distance());
 
         boolean roomDetected = !roomCuts.isEmpty();

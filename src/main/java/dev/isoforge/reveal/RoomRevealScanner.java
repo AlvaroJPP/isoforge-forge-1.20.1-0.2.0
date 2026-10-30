@@ -27,8 +27,10 @@ final class RoomRevealScanner {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         long seed = BlockPos.asLong(feet.getX(), feet.getY() + 1, feet.getZ());
 
-        if (feet.getY() + 1 > maxY || !isPassable(level, pos, feet.getX(), feet.getY() + 1, feet.getZ())) {
-            return null; // null sinaliza leitura incompleta; Map.of() significa comodo valido sem teto.
+        boolean[] complete = {true};
+        if (feet.getY() + 1 > maxY
+                || !isPassable(level, pos, feet.getX(), feet.getY() + 1, feet.getZ(), complete)) {
+            return complete[0] ? Map.of() : null;
         }
 
         ArrayDeque<Long> queue = new ArrayDeque<>();
@@ -46,13 +48,15 @@ final class RoomRevealScanner {
             highestByColumn.merge(column, y, Math::max);
 
             if (visited.size() >= MAX_VISITED_CELLS) return null; // nao publique uma mascara parcial.
-            addIfPassable(level, queue, visited, pos, x + 1, y, z, feet, radiusSquared, minY, maxY);
-            addIfPassable(level, queue, visited, pos, x - 1, y, z, feet, radiusSquared, minY, maxY);
-            addIfPassable(level, queue, visited, pos, x, y + 1, z, feet, radiusSquared, minY, maxY);
-            addIfPassable(level, queue, visited, pos, x, y - 1, z, feet, radiusSquared, minY, maxY);
-            addIfPassable(level, queue, visited, pos, x, y, z + 1, feet, radiusSquared, minY, maxY);
-            addIfPassable(level, queue, visited, pos, x, y, z - 1, feet, radiusSquared, minY, maxY);
+            addIfPassable(level, queue, visited, pos, x + 1, y, z, feet, radiusSquared, minY, maxY, complete);
+            addIfPassable(level, queue, visited, pos, x - 1, y, z, feet, radiusSquared, minY, maxY, complete);
+            addIfPassable(level, queue, visited, pos, x, y + 1, z, feet, radiusSquared, minY, maxY, complete);
+            addIfPassable(level, queue, visited, pos, x, y - 1, z, feet, radiusSquared, minY, maxY, complete);
+            addIfPassable(level, queue, visited, pos, x, y, z + 1, feet, radiusSquared, minY, maxY, complete);
+            addIfPassable(level, queue, visited, pos, x, y, z - 1, feet, radiusSquared, minY, maxY, complete);
         }
+
+        if (!complete[0]) return null;
 
         Map<Long, Integer> roofCuts = new HashMap<>();
         for (Map.Entry<Long, Integer> column : highestByColumn.entrySet()) {
@@ -63,7 +67,7 @@ final class RoomRevealScanner {
                 pos.set(x, y, z);
                 // Nao consulta regioes ainda nao carregadas: o reveal nao deve provocar
                 // leituras fora do mundo disponivel ao cliente durante a busca do teto.
-                if (!level.hasChunkAt(pos)) break;
+                if (!level.hasChunkAt(pos)) return null;
                 BlockState state = level.getBlockState(pos);
                 if (!state.canOcclude() || (!leavesAreRoof && state.is(BlockTags.LEAVES))) continue;
                 roofCuts.put(column.getKey(), y);
@@ -76,20 +80,24 @@ final class RoomRevealScanner {
 
     private static void addIfPassable(ClientLevel level, ArrayDeque<Long> queue, Set<Long> visited,
                                       BlockPos.MutableBlockPos pos, int x, int y, int z, BlockPos center,
-                                      int radiusSquared, int minY, int maxY) {
+                                      int radiusSquared, int minY, int maxY, boolean[] complete) {
         int dx = x - center.getX();
         int dz = z - center.getZ();
         if (y < minY || y > maxY || dx * dx + dz * dz > radiusSquared) return;
 
         long packed = BlockPos.asLong(x, y, z);
-        if (visited.contains(packed) || !isPassable(level, pos, x, y, z)) return;
+        if (visited.contains(packed) || !isPassable(level, pos, x, y, z, complete)) return;
         visited.add(packed);
         queue.addLast(packed);
     }
 
-    private static boolean isPassable(ClientLevel level, BlockPos.MutableBlockPos pos, int x, int y, int z) {
+    private static boolean isPassable(ClientLevel level, BlockPos.MutableBlockPos pos, int x, int y, int z,
+                                       boolean[] complete) {
         pos.set(x, y, z);
-        if (!level.hasChunkAt(pos)) return false;
+        if (!level.hasChunkAt(pos)) {
+            complete[0] = false;
+            return false;
+        }
         return level.getBlockState(pos).getCollisionShape(level, pos, CollisionContext.empty()).isEmpty();
     }
 }

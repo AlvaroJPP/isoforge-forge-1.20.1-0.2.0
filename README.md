@@ -57,6 +57,8 @@ A busca pelo comodo e limitada por `ceilingRadius` e `ceilingScan`, atualizada q
 no maximo, a cada 10 ticks. Para limitar o custo em espacos muito abertos, ela interrompe a analise acima de
 65.536 celulas. Leituras incompletas (por limite ou area ainda nao carregada) nao publicam mascaras parciais:
 uma falha isolada preserva o ultimo corte por alguns instantes; falhas consecutivas descartam a mascara antiga.
+Ao tocar em um chunk nao carregado durante a busca, a leitura inteira e marcada como incompleta para nao
+recortar uma sala pela metade. Os ajustes de inclinacao por tecla tambem usam interpolacao entre ticks.
 
 ## IMPORTANTE para Embeddium / Rubidium
 
