@@ -36,6 +36,7 @@ public final class IsoReveal {
     private static int pendingCut = RevealState.NO_CUT;
     private static int pendingTicks;
     private static int roomScanTicks;
+    private static int roomScanFailures;
     private static Map<Long, Integer> roomCuts = Map.of();
 
     private IsoReveal() {}
@@ -86,6 +87,7 @@ public final class IsoReveal {
             appliedCut = pendingCut = RevealState.NO_CUT;
             pendingTicks = 0;
             roomScanTicks = 0;
+            roomScanFailures = 0;
             roomCuts = Map.of();
         }
 
@@ -132,11 +134,20 @@ public final class IsoReveal {
 
         if (IsoConfig.V.roomAwareCutaway.get() && (anchorChanged || ++roomScanTicks >= 10)) {
             roomScanTicks = 0;
-            roomCuts = RoomRevealScanner.scan(level, new BlockPos(anchorX, anchorY, anchorZ),
+            Map<Long, Integer> scannedCuts = RoomRevealScanner.scan(level, new BlockPos(anchorX, anchorY, anchorZ),
                     IsoConfig.V.ceilingRadius.get(), IsoConfig.V.ceilingScan.get(),
                     IsoConfig.V.leavesAreRoof.get());
+            if (scannedCuts != null) {
+                roomCuts = scannedCuts;
+                roomScanFailures = 0;
+            } else if (++roomScanFailures >= 2) {
+                // Uma leitura incompleta isolada nao deve piscar o reveal; falhas consecutivas
+                // descartam a mascara antiga para nao deixar um comodo distante recortado.
+                roomCuts = Map.of();
+            }
         } else if (!IsoConfig.V.roomAwareCutaway.get()) {
             roomCuts = Map.of();
+            roomScanFailures = 0;
         }
 
         // teto com histerese: um novo valor so e aplicado depois de ficar estavel por alguns ticks
