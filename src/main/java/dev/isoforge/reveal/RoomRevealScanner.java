@@ -61,6 +61,9 @@ final class RoomRevealScanner {
             int roofSearchEnd = Math.min(level.getMaxBuildHeight() - 1, column.getValue() + verticalRange);
             for (int y = column.getValue() + 1; y <= roofSearchEnd; y++) {
                 pos.set(x, y, z);
+                // Nao consulta regioes ainda nao carregadas: o reveal nao deve provocar
+                // leituras fora do mundo disponivel ao cliente durante a busca do teto.
+                if (!level.hasChunkAt(pos)) break;
                 BlockState state = level.getBlockState(pos);
                 if (!state.canOcclude() || (!leavesAreRoof && state.is(BlockTags.LEAVES))) continue;
                 roofCuts.put(column.getKey(), y);
