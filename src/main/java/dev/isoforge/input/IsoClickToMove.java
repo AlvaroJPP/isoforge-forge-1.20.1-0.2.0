@@ -40,6 +40,16 @@ public final class IsoClickToMove {
         return active;
     }
 
+    /** Destino atual da navegacao automatica, ou null quando inativa. */
+    public static BlockPos target() {
+        return active ? target : null;
+    }
+
+    /** Quantidade de nos restantes na rota, incluindo a posicao atual. */
+    public static int remainingNodes() {
+        return active ? path.size() : 0;
+    }
+
     public static void cancel() {
         active = false;
         jumpRequested = false;
