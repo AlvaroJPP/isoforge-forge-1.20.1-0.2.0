@@ -12,18 +12,28 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 /**
- * Click-to-move client-side para o modo isometrico.
- * A rota e calculada em uma grade 3D pequena, respeitando espaco para o jogador,
- * piso, degraus de um bloco e cantos diagonais. Nao envia pacotes nem altera o servidor.
+ * Navegacao ARPG client-side.
+ * A busca A* usa uma grade 3D limitada, evita cortes diagonais por cantos bloqueados,
+ * permite degraus de um bloco e procura um destino realmente alcancavel perto do clique.
+ * Nao envia pacotes nem altera o servidor.
  */
 public final class IsoClickToMove {
-    private static final int MAX_EXPANSIONS = 3_500;
-    private static final int MAX_ROUTE_RADIUS = 48;
+    private static final int MAX_EXPANSIONS = 9_000;
+    private static final int MAX_ROUTE_RADIUS = 64;
+    private static final int REPLAN_STUCK_TICKS = 18;
+    private static final int REPLAN_COOLDOWN_TICKS = 20;
+    private static final int ROUTE_CHECK_INTERVAL = 5;
+    private static final int ROUTE_LOOKAHEAD = 3;
+    private static final double WAYPOINT_RADIUS_SQUARED = 0.30 * 0.30;
+    private static final double PROGRESS_DISTANCE_SQUARED = 0.20 * 0.20;
+
     private static final int[][] DIRECTIONS = {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
@@ -33,6 +43,10 @@ public final class IsoClickToMove {
     private static BlockPos target;
     private static boolean active;
     private static boolean jumpRequested;
+    private static Vec3 lastProgressPosition;
+    private static int stuckTicks;
+    private static int routeCheckTicks;
+    private static int repathCooldown;
 
     private IsoClickToMove() {}
 
@@ -55,26 +69,29 @@ public final class IsoClickToMove {
         jumpRequested = false;
         target = null;
         path.clear();
+        lastProgressPosition = null;
+        stuckTicks = 0;
+        routeCheckTicks = 0;
+        repathCooldown = 0;
     }
 
-    /** Cria uma rota ate uma posicao clicada. A posicao final e ajustada para o bloco caminhavel mais proximo. */
+    /** Cria uma rota ate uma superficie caminhavel alcancavel perto do ponto clicado. */
     public static boolean setTarget(ClientLevel level, LocalPlayer player, Vec3 point) {
         cancel();
         if (level == null || player == null || point == null) return false;
 
         BlockPos start = player.blockPosition();
-        BlockPos goal = findNearbyGoal(level, point, start);
-        if (goal == null) return false;
+        List<BlockPos> route = findPath(level, start, findNearbyGoals(level, point));
+        if (route.size() <= 1) return false;
 
-        List<BlockPos> route = findPath(level, start, goal);
-        if (route.isEmpty()) return false;
-        target = goal;
         path.addAll(route);
-        active = path.size() > 1;
-        return active;
+        target = path.get(path.size() - 1);
+        active = true;
+        lastProgressPosition = player.position();
+        return true;
     }
 
-    /** Chamado no tick do cliente para avancar a rota e respeitar movimento manual. */
+    /** Avanca a rota, valida os proximos passos e tenta recuperar movimentos interrompidos. */
     public static void tick(Minecraft mc) {
         if (!active) return;
         LocalPlayer player = mc.player;
@@ -90,12 +107,32 @@ public final class IsoClickToMove {
             return;
         }
 
-        while (path.size() > 1) {
-            BlockPos next = path.get(1);
-            double dx = next.getX() + 0.5 - player.getX();
-            double dz = next.getZ() + 0.5 - player.getZ();
-            if (dx * dx + dz * dz > 0.30 * 0.30) break;
-            path.remove(0);
+        if (repathCooldown > 0) repathCooldown--;
+        advanceReachedWaypoints(player);
+        if (path.size() <= 1) {
+            cancel();
+            return;
+        }
+
+        if (++routeCheckTicks >= ROUTE_CHECK_INTERVAL) {
+            routeCheckTicks = 0;
+            if (hasBlockedWaypoint(mc.level)) {
+                if (!rebuildPath(mc.level, player)) {
+                    cancel();
+                    return;
+                }
+            }
+        }
+
+        updateProgress(player);
+        if (stuckTicks >= REPLAN_STUCK_TICKS && repathCooldown == 0) {
+            if (!rebuildPath(mc.level, player)) {
+                cancel();
+                return;
+            }
+            stuckTicks = 0;
+            repathCooldown = REPLAN_COOLDOWN_TICKS;
+            lastProgressPosition = player.position();
         }
 
         if (path.size() <= 1) {
@@ -104,43 +141,54 @@ public final class IsoClickToMove {
         }
 
         BlockPos next = path.get(1);
-        // O mundo pode mudar depois do calculo (porta fechada, bloco colocado,
-        // pistao ou outro jogador). Tenta recalcular a rota antes de desistir.
-        if (!isWalkable(mc.level, next)) {
-            if (!rebuildPath(mc.level, player)) {
-                cancel();
-                return;
-            }
-            if (path.size() <= 1) {
-                cancel();
-                return;
-            }
-            next = path.get(1);
-        }
         jumpRequested = next.getY() > player.blockPosition().getY() && player.onGround();
     }
 
+    private static void advanceReachedWaypoints(LocalPlayer player) {
+        while (path.size() > 1) {
+            BlockPos next = path.get(1);
+            double dx = next.getX() + 0.5 - player.getX();
+            double dz = next.getZ() + 0.5 - player.getZ();
+            if (dx * dx + dz * dz > WAYPOINT_RADIUS_SQUARED) break;
+            path.remove(0);
+        }
+    }
+
+    private static boolean hasBlockedWaypoint(ClientLevel level) {
+        int end = Math.min(path.size(), ROUTE_LOOKAHEAD + 1);
+        for (int i = 1; i < end; i++) {
+            if (!isWalkable(level, path.get(i))) return true;
+        }
+        return false;
+    }
+
+    private static void updateProgress(LocalPlayer player) {
+        Vec3 current = player.position();
+        if (lastProgressPosition == null
+                || current.distanceToSqr(lastProgressPosition) >= PROGRESS_DISTANCE_SQUARED) {
+            lastProgressPosition = current;
+            stuckTicks = 0;
+        } else if (player.onGround()) {
+            stuckTicks++;
+        }
+    }
+
     /**
-     * Recalcula a rota quando uma porta/bloco altera o caminho.
-     * O destino original e preservado; se ele tambem ficou bloqueado,
-     * procura uma superficie caminhavel proxima antes de cancelar.
+     * Recalcula preservando o ponto original. Se ele ficou ocupado ou isolado,
+     * a busca aceita outra superficie caminhavel proxima que seja alcancavel.
      */
     private static boolean rebuildPath(ClientLevel level, LocalPlayer player) {
         if (target == null) return false;
-        BlockPos start = player.blockPosition();
-        BlockPos destination = target;
-        if (!isWalkable(level, destination)) {
-            destination = findNearbyGoal(level,
-                    new Vec3(target.getX() + 0.5, target.getY(), target.getZ() + 0.5), start);
-        }
-        if (destination == null) return false;
-
-        List<BlockPos> replacement = findPath(level, start, destination);
+        Vec3 destinationPoint = new Vec3(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
+        List<BlockPos> replacement = findPath(level, player.blockPosition(),
+                findNearbyGoals(level, destinationPoint));
         if (replacement.size() <= 1) return false;
+
         path.clear();
         path.addAll(replacement);
-        target = destination;
+        target = path.get(path.size() - 1);
         jumpRequested = false;
+        routeCheckTicks = 0;
         return true;
     }
 
@@ -166,39 +214,44 @@ public final class IsoClickToMove {
         return true;
     }
 
-    private static BlockPos findNearbyGoal(ClientLevel level, Vec3 point, BlockPos start) {
+    /**
+     * Cria um conjunto pequeno de destinos candidatos em volta do clique.
+     * O A* escolhe o primeiro destino desse conjunto que realmente consegue alcancar.
+     */
+    private static Set<Long> findNearbyGoals(ClientLevel level, Vec3 point) {
         int x = (int) Math.floor(point.x);
         int y = (int) Math.floor(point.y);
         int z = (int) Math.floor(point.z);
-        BlockPos best = null;
-        double bestScore = Double.MAX_VALUE;
+        Set<Long> goals = new HashSet<>();
 
         for (int dx = -3; dx <= 3; dx++) {
             for (int dz = -3; dz <= 3; dz++) {
                 for (int dy = 2; dy >= -3; dy--) {
                     BlockPos candidate = new BlockPos(x + dx, y + dy, z + dz);
-                    if (!isWalkable(level, candidate)) continue;
-                    double horizontal = Math.hypot(candidate.getX() + 0.5 - point.x,
-                            candidate.getZ() + 0.5 - point.z);
-                    double vertical = Math.abs(candidate.getY() - start.getY()) * 0.35;
-                    double score = horizontal + vertical;
-                    if (score < bestScore) {
-                        bestScore = score;
-                        best = candidate;
-                    }
+                    if (isWalkable(level, candidate)) goals.add(candidate.asLong());
                 }
             }
         }
-        return best;
+        return goals;
     }
 
-    private static List<BlockPos> findPath(ClientLevel level, BlockPos start, BlockPos goal) {
+    private static List<BlockPos> findPath(ClientLevel level, BlockPos start, Set<Long> goals) {
+        if (goals.isEmpty()) return List.of();
         long startKey = start.asLong();
-        long goalKey = goal.asLong();
+        if (goals.contains(startKey)) return List.of(start);
+
+        // Usa o centro da regiao de destino para estimar a distancia sem favorecer
+        // um candidato bloqueado escolhido apenas pela proximidade do clique.
+        Vec3 reference = goals.stream()
+                .map(IsoClickToMove::unpack)
+                .map(pos -> new Vec3(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5))
+                .min(Comparator.comparingDouble(pos -> horizontalDistanceSquared(pos, start)))
+                .orElse(Vec3.ZERO);
+
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(Node::score));
         Map<Long, Double> costs = new HashMap<>();
         Map<Long, Long> parents = new HashMap<>();
-        open.add(new Node(startKey, 0.0, heuristic(start, goal)));
+        open.add(new Node(startKey, 0.0, heuristic(start, reference)));
         costs.put(startKey, 0.0);
 
         int expanded = 0;
@@ -206,7 +259,7 @@ public final class IsoClickToMove {
             Node node = open.poll();
             Double known = costs.get(node.key());
             if (known == null || node.cost() > known + 1.0E-5) continue;
-            if (node.key() == goalKey) return reconstruct(startKey, goalKey, parents);
+            if (goals.contains(node.key())) return reconstruct(startKey, node.key(), parents);
 
             BlockPos current = unpack(node.key());
             for (int[] direction : DIRECTIONS) {
@@ -216,45 +269,58 @@ public final class IsoClickToMove {
                         || Math.abs(nz - start.getZ()) > MAX_ROUTE_RADIUS) continue;
 
                 boolean diagonal = direction[0] != 0 && direction[1] != 0;
-                if (diagonal && (!isWalkable(level, new BlockPos(current.getX() + direction[0], current.getY(), current.getZ()))
-                        || !isWalkable(level, new BlockPos(current.getX(), current.getY(), current.getZ() + direction[1])))) {
-                    continue;
+                if (diagonal) {
+                    BlockPos sideX = new BlockPos(current.getX() + direction[0], current.getY(), current.getZ());
+                    BlockPos sideZ = new BlockPos(current.getX(), current.getY(), current.getZ() + direction[1]);
+                    if (!isWalkable(level, sideX) || !isWalkable(level, sideZ)) continue;
                 }
 
                 for (int dy : new int[]{0, 1, -1}) {
                     BlockPos next = new BlockPos(nx, current.getY() + dy, nz);
                     if (!isWalkable(level, next)) continue;
-                    double step = diagonal ? 1.41421356237 : 1.0;
-                    if (dy != 0) step += 0.55;
-                    double nextCost = node.cost() + step;
+
+                    double stepCost = diagonal ? 1.41421356237 : 1.0;
+                    if (dy > 0) stepCost += 0.85;       // subir exige salto
+                    else if (dy < 0) stepCost += 1.65;  // evita quedas desnecessarias
+                    double nextCost = node.cost() + stepCost;
                     long nextKey = next.asLong();
                     double previous = costs.getOrDefault(nextKey, Double.MAX_VALUE);
                     if (nextCost >= previous) continue;
+
                     costs.put(nextKey, nextCost);
                     parents.put(nextKey, node.key());
-                    open.add(new Node(nextKey, nextCost, heuristic(next, goal)));
+                    open.add(new Node(nextKey, nextCost, heuristic(next, reference)));
                 }
             }
         }
         return List.of();
     }
 
+    private static double horizontalDistanceSquared(Vec3 point, BlockPos from) {
+        double dx = point.x - (from.getX() + 0.5);
+        double dz = point.z - (from.getZ() + 0.5);
+        return dx * dx + dz * dz;
+    }
+
     private static boolean isWalkable(ClientLevel level, BlockPos feet) {
-        if (level.isOutsideBuildHeight(feet) || !level.hasChunkAt(feet) || !level.hasChunkAt(feet.below())) return false;
+        if (level.isOutsideBuildHeight(feet) || !level.hasChunkAt(feet)) return false;
+        BlockPos head = feet.above();
+        BlockPos floor = feet.below();
+        if (level.isOutsideBuildHeight(head) || !level.hasChunkAt(head) || !level.hasChunkAt(floor)) return false;
+
         CollisionContext context = CollisionContext.empty();
         if (!level.getBlockState(feet).getCollisionShape(level, feet, context).isEmpty()) return false;
-        BlockPos head = feet.above();
-        if (level.isOutsideBuildHeight(head) || !level.getBlockState(head).getCollisionShape(level, head, context).isEmpty()) return false;
-        BlockPos floor = feet.below();
+        if (!level.getBlockState(head).getCollisionShape(level, head, context).isEmpty()) return false;
         return !level.getBlockState(floor).getCollisionShape(level, floor, context).isEmpty();
     }
 
-    private static double heuristic(BlockPos from, BlockPos to) {
-        int dx = Math.abs(from.getX() - to.getX());
-        int dz = Math.abs(from.getZ() - to.getZ());
-        int dy = Math.abs(from.getY() - to.getY());
-        int diagonal = Math.min(dx, dz);
-        return diagonal * 1.41421356237 + (Math.max(dx, dz) - diagonal) + dy * 1.2;
+    private static double heuristic(BlockPos from, Vec3 to) {
+        double dx = Math.abs(from.getX() + 0.5 - to.x);
+        double dz = Math.abs(from.getZ() + 0.5 - to.z);
+        double diagonal = Math.min(dx, dz);
+        double horizontal = diagonal * 1.41421356237 + Math.max(dx, dz) - diagonal;
+        double vertical = Math.abs(from.getY() - to.y);
+        return horizontal + vertical * 1.2;
     }
 
     private static List<BlockPos> reconstruct(long start, long goal, Map<Long, Long> parents) {
@@ -280,5 +346,4 @@ public final class IsoClickToMove {
     private record Node(long key, double cost, double estimate) {
         double score() { return cost + estimate; }
     }
-
 }
