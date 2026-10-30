@@ -44,15 +44,14 @@ public final class RevealDiff {
         int x0 = sx << 4, y0 = sy << 4, z0 = sz << 4;
         boolean self = false;
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        boolean waterProtectionChanged = a.preserveWaterBelow() != b.preserveWaterBelow()
-                || ((a.preserveWaterBelow() || b.preserveWaterBelow()) && a.py() != b.py());
+        boolean waterProtectionChanged = a.preserveWater() != b.preserveWater();
         boolean nxm = false, nxp = false, nym = false, nyp = false, nzm = false, nzp = false;
         for (int lx = 0; lx < 16; lx++) {
             for (int lz = 0; lz < 16; lz++) {
                 for (int ly = 0; ly < 16; ly++) {
                     int x = x0 + lx, y = y0 + ly, z = z0 + lz;
                     boolean water = false;
-                    if (waterProtectionChanged && y < Math.max(a.py(), b.py())) {
+                    if (waterProtectionChanged) {
                         mutable.set(x, y, z);
                         water = level.getFluidState(mutable).is(FluidTags.WATER);
                     }

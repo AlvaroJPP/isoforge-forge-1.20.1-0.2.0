@@ -45,7 +45,7 @@ com Oculus, embora shaders que dependem de uma projecao exata ainda possam apres
   e andares vizinhos do que um corte horizontal unico.
 - **Fallback em areas abertas:** sem um comodo coberto detectavel, o corte de teto continua ativo: blocos a
   partir do primeiro teto acima do jogador somem dentro do raio configurado.
-- **Tubo de visao:** um funil entre o jogador e a camera esconde geometria que bloqueia a linha de visao somente acima da altura do personagem. Os dois niveis ocupados pelo corpo sao preservados, assim como o piso, o bloco de apoio e obstaculos baixos de um unico bloco. Durante nado, imersao ou voo de Elytra, a agua abaixo do jogador e preservada pelo reveal.
+- **Tubo de visao:** um funil entre o jogador e a camera esconde geometria que bloqueia a linha de visao somente acima da altura do personagem. Os dois niveis ocupados pelo corpo sao preservados, assim como o piso, o bloco de apoio e obstaculos baixos de um unico bloco. Durante nado, imersao ou voo de Elytra, toda a geometria de agua e preservada para evitar um tunel circular na superficie/submersao; os cortes de blocos solidos continuam ativos.
 - Histerese (`debounceTicks`), ancoragem (`anchorStep`) e limite de reconstrucoes por tick (`rebuildsPerTick`)
   reduzem oscilacao e picos de trabalho.
 

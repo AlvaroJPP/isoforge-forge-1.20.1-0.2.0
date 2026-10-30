@@ -48,7 +48,7 @@ public final class IsoReveal {
         return state.isHidden(x, y, z);
     }
 
-    /** Consulta usada pelos mixins de malha para preservar agua abaixo do jogador em movimento aquatico. */
+    /** Consulta usada pelos mixins de malha para preservar agua durante nado, imersao ou voo de Elytra. */
     public static boolean isHidden(int x, int y, int z, BlockState blockState) {
         RevealState snapshot = state;
         boolean water = blockState.getFluidState().is(FluidTags.WATER);

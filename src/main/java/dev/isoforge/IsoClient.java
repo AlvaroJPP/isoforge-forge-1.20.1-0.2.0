@@ -143,7 +143,11 @@ public final class IsoClient {
         float pitch = (float) -Math.toDegrees(Math.atan2(aim.y - eye.y, h));
         player.setYRot(yaw);
         player.setYHeadRot(yaw);
-        player.setXRot(Mth.clamp(pitch, -89.0F, 89.0F));
+        // Elytra ascent depends on the player's real pitch. During flight and swimming,
+        // leave vertical look under vanilla mouse control instead of pinning it to the ground cursor.
+        if (!player.isFallFlying() && !player.isSwimming() && !player.isInWater()) {
+            player.setXRot(Mth.clamp(pitch, -89.0F, 89.0F));
+        }
     }
 
     // ------------------------------------------------------------------ render / input events

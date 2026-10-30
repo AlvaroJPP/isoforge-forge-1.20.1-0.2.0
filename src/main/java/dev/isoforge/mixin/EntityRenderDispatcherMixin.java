@@ -20,7 +20,8 @@ public abstract class EntityRenderDispatcherMixin {
         // A pose do player muda bastante ao nadar e planar com Elytra; nunca deixe o
         // frustum da camera remota remover o proprio jogador do render pass.
         Minecraft mc = Minecraft.getInstance();
-        if (IsoClient.active() && entity == mc.player) {
+        if (IsoClient.active() && entity == mc.player && !entity.isInvisible()
+                && (entity.isSwimming() || entity.isInWater() || entity.isFallFlying())) {
             cir.setReturnValue(true);
             return;
         }

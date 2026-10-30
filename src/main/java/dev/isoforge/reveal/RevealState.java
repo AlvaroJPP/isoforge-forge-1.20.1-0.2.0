@@ -15,7 +15,7 @@ import java.util.Map;
  */
 public record RevealState(
         boolean active,
-        boolean preserveWaterBelow,
+        boolean preserveWater,
         int px, int py, int pz,
         int cutY,
         int radius,
@@ -77,11 +77,11 @@ public record RevealState(
     }
 
     /**
-     * Agua abaixo do jogador e preservada enquanto ele nada ou plana.
-     * Isso evita que o cutaway trate o oceano como geometria opaca a remover.
+     * A geometria de agua e preservada enquanto o jogador nada, esta submerso ou plana.
+     * O reveal continua cortando blocos solidos, sem abrir um tunel circular na agua.
      */
     public boolean isHidden(int x, int y, int z, boolean water) {
-        if (preserveWaterBelow && water && y < py) return false;
+        if (preserveWater && water) return false;
         return isHidden(x, y, z);
     }
 
