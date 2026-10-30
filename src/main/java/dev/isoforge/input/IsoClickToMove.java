@@ -144,8 +144,7 @@ public final class IsoClickToMove {
 
         RouteStep next = path.get(1);
         double rise = next.position().feetY() - player.getY();
-        jumpRequested = next.jump() && player.onGround()
-                && (rise > MAX_WALK_STEP || next.jump());
+        jumpRequested = next.jump() && player.onGround();
     }
 
     private static void advanceReachedWaypoints(LocalPlayer player) {
@@ -259,7 +258,7 @@ public final class IsoClickToMove {
             if (goals.contains(node.key())) return reconstruct(startKey, node.key(), parents, jumpEdges);
 
             NavPos current = NavPos.fromKey(node.key());
-            boolean swimming = IsoNavigationRules.isWaterNode(level, current);
+            boolean swimming = IsoNavigationRules.isWaterNode(level, current.x(), current.feetY(), current.z());
             double currentY = current.feetY();
 
             for (int[] direction : DIRECTIONS) {
@@ -277,7 +276,7 @@ public final class IsoClickToMove {
 
                 if (swimming) {
                     NavPos horizontal = new NavPos(nx, current.yHalf(), nz);
-                    if (IsoNavigationRules.isWaterNode(level, horizontal)) {
+                    if (IsoNavigationRules.isWaterNode(level, horizontal.x(), horizontal.feetY(), horizontal.z())) {
                         addNode(open, costs, parents, jumpEdges, node, horizontal,
                                 (diagonal ? 1.41421356237 : 1.0) + 0.35, false, reference);
                     }
@@ -290,8 +289,8 @@ public final class IsoClickToMove {
                     if (delta > MAX_JUMP_STEP || delta < -MAX_SAFE_DROP) continue;
 
                     boolean jump = delta > MAX_WALK_STEP;
-                    if (jump && !IsoNavigationRules.canJumpUp(level, current, next)) continue;
-                    if (delta < -MAX_WALK_STEP && !IsoNavigationRules.canDropSafely(level, current, next)) continue;
+                    if (jump && !IsoNavigationRules.canJumpUp(level, current.x(), current.feetY(), current.z(), next.x(), next.feetY(), next.z())) continue;
+                    if (delta < -MAX_WALK_STEP && !IsoNavigationRules.canDropSafely(level, current.x(), current.feetY(), current.z(), next.x(), next.feetY(), next.z())) continue;
 
                     double cost = diagonal ? 1.41421356237 : 1.0;
                     cost += Math.abs(delta) * 0.9;
@@ -303,7 +302,7 @@ public final class IsoClickToMove {
             if (swimming) {
                 for (int dyHalf : new int[]{-2, -1, 1, 2}) {
                     NavPos next = new NavPos(current.x(), current.yHalf() + dyHalf, current.z());
-                    if (IsoNavigationRules.isWaterNode(level, next)) {
+                    if (IsoNavigationRules.isWaterNode(level, next.x(), next.feetY(), next.z())) {
                         addNode(open, costs, parents, jumpEdges, node, next,
                                 Math.abs(dyHalf) * 0.55, false, reference);
                     }
@@ -316,7 +315,7 @@ public final class IsoClickToMove {
                     for (double landingHeight : IsoNavigationRules.findStandHeights(level, lx, lz, currentY)) {
                         if (Math.abs(landingHeight - currentY) > 0.5) continue;
                         NavPos landing = NavPos.of(lx, landingHeight, lz);
-                        if (!IsoNavigationRules.isJumpArcClear(level, current, landing, direction[0], direction[1])) continue;
+                        if (!IsoNavigationRules.isJumpArcClear(level, current.x(), current.feetY(), current.z(), landing.x(), landing.feetY(), landing.z(), direction[0], direction[1])) continue;
                         addNode(open, costs, parents, jumpEdges, node, landing, 2.85, true, reference);
                     }
                 }
@@ -343,12 +342,12 @@ public final class IsoClickToMove {
         if (step.jump() && Math.abs(to.x() - from.x()) + Math.abs(to.z() - from.z()) == 2) {
             int dx = Integer.signum(to.x() - from.x());
             int dz = Integer.signum(to.z() - from.z());
-            return IsoNavigationRules.isJumpArcClear(level, from, to, dx, dz);
+            return IsoNavigationRules.isJumpArcClear(level, from.x(), from.feetY(), from.z(), to.x(), to.feetY(), to.z(), dx, dz);
         }
-        if (!IsoNavigationRules.isStandable(level, to)) return false;
+        if (!IsoNavigationRules.isStandable(level, to.x(), to.feetY(), to.z())) return false;
         double delta = to.feetY() - from.feetY();
-        if (delta < -MAX_WALK_STEP) return IsoNavigationRules.canDropSafely(level, from, to);
-        if (delta > MAX_WALK_STEP) return step.jump() && IsoNavigationRules.canJumpUp(level, from, to);
+        if (delta < -MAX_WALK_STEP) return IsoNavigationRules.canDropSafely(level, from.x(), from.feetY(), from.z(), to.x(), to.feetY(), to.z());
+        if (delta > MAX_WALK_STEP) return step.jump() && IsoNavigationRules.canJumpUp(level, from.x(), from.feetY(), from.z(), to.x(), to.feetY(), to.z());
         return true;
     }
 

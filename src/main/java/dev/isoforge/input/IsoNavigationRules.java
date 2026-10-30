@@ -116,7 +116,7 @@ final class IsoNavigationRules {
         double rise = toY - fromY;
         if (rise <= 0.60 || rise > 1.05 || !isStandable(level, new NavPoint(toX, toY, toZ))) return false;
         return hasBodyClearance(level, fromX, fromZ, fromY)
-                && hasBodyClearance(level, toX, toZ, fromY + 0.5);
+                && hasBodyClearance(level, toX, toZ, toY);
     }
 
     static boolean isJumpArcClear(ClientLevel level, int fromX, double fromY, int fromZ,
