@@ -64,8 +64,9 @@ public final class IsoHud {
         font.drawInBatch(label, -font.width(label) * 0.5F, -2.0F, labelColor, true,
                 matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
 
-        if (IsoConfig.V.showHealthBars.get()) {
-            float ratio = Mth.clamp(entity.getHealth() / Math.max(1.0F, entity.getMaxHealth()), 0.0F, 1.0F);
+        float ratio = Mth.clamp(entity.getHealth() / Math.max(1.0F, entity.getMaxHealth()), 0.0F, 1.0F);
+        boolean showHealth = targeted || ratio < 0.999F;
+        if (IsoConfig.V.showHealthBars.get() && showHealth) {
             String background = "██████████";
             int barWidth = font.width(background);
             float barX = -barWidth * 0.5F;
@@ -79,9 +80,12 @@ public final class IsoHud {
                         matrix, buffers, Font.DisplayMode.NORMAL, 0, light);
             }
 
-            String health = String.format("%.0f / %.0f", entity.getHealth(), entity.getMaxHealth());
-            font.drawInBatch(health, -font.width(health) * 0.5F, 19.0F, 0xFFD6DCE4, true,
-                    matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
+            // Numeros ocupam mais espaco: aparecem no alvo ou em criaturas ja feridas.
+            if (targeted || ratio < 0.60F) {
+                String health = String.format("%.0f / %.0f", entity.getHealth(), entity.getMaxHealth());
+                font.drawInBatch(health, -font.width(health) * 0.5F, 19.0F, 0xFFD6DCE4, true,
+                        matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
+            }
         }
         pose.popPose();
     }
