@@ -20,9 +20,19 @@ import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.UUID;
+
 /** HUD leve do modo ARPG: estado da camera, alvo do cursor, vida e fome. */
 @Mod.EventBusSubscriber(modid = IsoForge.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class IsoHud {
+    private static final Map<UUID, HealthSample> HEALTH_SAMPLES = new HashMap<>();
+    private static final Map<UUID, DamagePopup> DAMAGE_POPUPS = new HashMap<>();
+    private static long lastDamageCleanup = Long.MIN_VALUE;
+    private static final long DAMAGE_LIFETIME_TICKS = 18L;
+
     private IsoHud() {}
 
     /**
@@ -33,17 +43,26 @@ public final class IsoHud {
     public static void onLivingRender(RenderLivingEvent.Post<?, ?> event) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (!IsoClient.active() || player == null || mc.level == null || !IsoConfig.V.showNameplates.get()) return;
+        if (!IsoClient.active() || player == null || mc.level == null) return;
 
         LivingEntity entity = event.getEntity();
         if (entity == player || !entity.isAlive() || entity.isInvisibleTo(player)
                 || IsoReveal.isEntityHidden(entity)) return;
 
+        long gameTime = mc.level.getGameTime();
+        DamagePopup damage = observeDamage(entity, gameTime);
+        boolean showDamage = IsoConfig.V.showDamageNumbers.get()
+                && damage != null && gameTime - damage.startedAt() < DAMAGE_LIFETIME_TICKS;
         boolean targeted = mc.hitResult instanceof EntityHitResult hit && hit.getEntity() == entity;
-        if (!targeted && entity.getType().getCategory() != MobCategory.MONSTER) return;
+        boolean showNameplate = IsoConfig.V.showNameplates.get()
+                && (targeted || entity.getType().getCategory() == MobCategory.MONSTER);
+
+        if (!showDamage && !showNameplate) return;
 
         double distanceSqr = entity.distanceToSqr(player);
-        double maxDistance = IsoConfig.V.nameplateRange.get() + (targeted ? 8.0 : 0.0);
+        double maxDistance = showNameplate
+                ? IsoConfig.V.nameplateRange.get() + (targeted ? 8.0 : 0.0)
+                : IsoConfig.V.nameplateRange.get();
         if (distanceSqr > maxDistance * maxDistance) return;
 
         PoseStack pose = event.getPoseStack();
@@ -57,35 +76,50 @@ public final class IsoHud {
         var buffers = event.getMultiBufferSource();
         int light = event.getPackedLight();
 
-        String rawName = entity.getDisplayName().getString();
-        String label = font.plainSubstrByWidth(rawName, 132);
-        if (targeted) label = "ALVO  ·  " + label;
-        int labelColor = targeted ? 0xFFFFC15A : 0xFFE7EBF0;
-        font.drawInBatch(label, -font.width(label) * 0.5F, -2.0F, labelColor, true,
-                matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
+        if (showNameplate) {
+            String rawName = entity.getDisplayName().getString();
+            String label = font.plainSubstrByWidth(rawName, 132);
+            if (targeted) label = "ALVO  ·  " + label;
+            int labelColor = targeted ? 0xFFFFC15A : 0xFFE7EBF0;
+            font.drawInBatch(label, -font.width(label) * 0.5F, -2.0F, labelColor, true,
+                    matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
 
-        float ratio = Mth.clamp(entity.getHealth() / Math.max(1.0F, entity.getMaxHealth()), 0.0F, 1.0F);
-        boolean showHealth = targeted || ratio < 0.999F;
-        if (IsoConfig.V.showHealthBars.get() && showHealth) {
-            String background = "██████████";
-            int barWidth = font.width(background);
-            float barX = -barWidth * 0.5F;
-            font.drawInBatch(background, barX, 9.0F, 0xFF343B45, false,
-                    matrix, buffers, Font.DisplayMode.NORMAL, 0x800A0D12, light);
+            float ratio = Mth.clamp(entity.getHealth() / Math.max(1.0F, entity.getMaxHealth()), 0.0F, 1.0F);
+            boolean showHealth = targeted || ratio < 0.999F;
+            if (IsoConfig.V.showHealthBars.get() && showHealth) {
+                String background = "██████████";
+                int barWidth = font.width(background);
+                float barX = -barWidth * 0.5F;
+                font.drawInBatch(background, barX, 9.0F, 0xFF343B45, false,
+                        matrix, buffers, Font.DisplayMode.NORMAL, 0x800A0D12, light);
 
-            int filled = Math.round(10.0F * ratio);
-            if (filled > 0) {
-                String foreground = "█".repeat(filled);
-                font.drawInBatch(foreground, barX, 9.0F, healthColor(ratio), false,
-                        matrix, buffers, Font.DisplayMode.NORMAL, 0, light);
+                int filled = Math.round(10.0F * ratio);
+                if (filled > 0) {
+                    String foreground = "█".repeat(filled);
+                    font.drawInBatch(foreground, barX, 9.0F, healthColor(ratio), false,
+                            matrix, buffers, Font.DisplayMode.NORMAL, 0, light);
+                }
+
+                if (targeted || ratio < 0.60F) {
+                    String health = String.format("%.0f / %.0f", entity.getHealth(), entity.getMaxHealth());
+                    font.drawInBatch(health, -font.width(health) * 0.5F, 19.0F, 0xFFD6DCE4, true,
+                            matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
+                }
             }
+        }
 
-            // Numeros ocupam mais espaco: aparecem no alvo ou em criaturas ja feridas.
-            if (targeted || ratio < 0.60F) {
-                String health = String.format("%.0f / %.0f", entity.getHealth(), entity.getMaxHealth());
-                font.drawInBatch(health, -font.width(health) * 0.5F, 19.0F, 0xFFD6DCE4, true,
-                        matrix, buffers, Font.DisplayMode.NORMAL, 0x700A0D12, light);
-            }
+        if (showDamage) {
+            float age = (gameTime - damage.startedAt()) + event.getPartialTick();
+            float rise = Math.min(18.0F, age) * 0.75F;
+            int alpha = Mth.clamp(Math.round(255.0F * (1.0F - age / DAMAGE_LIFETIME_TICKS)), 0, 255);
+            int color = (alpha << 24) | 0x00FFB45F;
+            String text = String.format("-%.1f", damage.amount());
+            pose.pushPose();
+            pose.translate(0.0, -0.55 - rise * 0.025, 0.0);
+            pose.scale(1.18F, 1.18F, 1.0F);
+            font.drawInBatch(text, -font.width(text) * 0.5F, -20.0F, color, true,
+                    pose.last().pose(), buffers, Font.DisplayMode.NORMAL, (alpha / 2) << 24, light);
+            pose.popPose();
         }
         pose.popPose();
     }
@@ -126,6 +160,34 @@ public final class IsoHud {
         if (IsoConfig.V.showAimIndicator.get()) drawAimIndicator(mc, gui);
         drawTargetInfo(mc, gui);
     }
+
+    /** Detecta perda real de HP no cliente e cria um popup temporario por entidade. */
+    private static DamagePopup observeDamage(LivingEntity entity, long gameTime) {
+        UUID id = entity.getUUID();
+        float health = entity.getHealth();
+        HealthSample previous = HEALTH_SAMPLES.put(id, new HealthSample(health, gameTime));
+
+        if (previous != null && health < previous.health() - 0.05F) {
+            float amount = previous.health() - health;
+            DamagePopup current = DAMAGE_POPUPS.get(id);
+            if (current != null && current.startedAt() == gameTime) {
+                DAMAGE_POPUPS.put(id, new DamagePopup(current.amount() + amount, gameTime));
+            } else {
+                DAMAGE_POPUPS.put(id, new DamagePopup(amount, gameTime));
+            }
+        }
+
+        if (lastDamageCleanup == Long.MIN_VALUE || gameTime - lastDamageCleanup >= 40L) {
+            lastDamageCleanup = gameTime;
+            HEALTH_SAMPLES.entrySet().removeIf(entry -> gameTime - entry.getValue().lastSeenAt() > 200L);
+            DAMAGE_POPUPS.entrySet().removeIf(entry ->
+                    gameTime - entry.getValue().startedAt() >= DAMAGE_LIFETIME_TICKS);
+        }
+        return DAMAGE_POPUPS.get(id);
+    }
+
+    private record HealthSample(float health, long lastSeenAt) {}
+    private record DamagePopup(float amount, long startedAt) {}
 
     private static int healthColor(float ratio) {
         if (ratio > 0.60F) return 0xFF55D68B;

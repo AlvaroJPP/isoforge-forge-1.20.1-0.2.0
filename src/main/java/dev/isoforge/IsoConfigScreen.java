@@ -14,7 +14,7 @@ public final class IsoConfigScreen extends Screen {
     private int panelX;
     private int panelY;
     private int panelWidth;
-    private static final int PANEL_HEIGHT = 450;
+    private static final int PANEL_HEIGHT = 481;
 
     public IsoConfigScreen(Screen parent) {
         super(Component.literal("Isocraft Settings"));
@@ -62,6 +62,10 @@ public final class IsoConfigScreen extends Screen {
                 () -> change(IsoConfig.V.showNameplates, !IsoConfig.V.showNameplates.get()));
         addToggle(right, y, columnWidth, "Barras de vida", IsoConfig.V.showHealthBars::get,
                 () -> change(IsoConfig.V.showHealthBars, !IsoConfig.V.showHealthBars.get()));
+        y += 31;
+
+        addToggle(left, y, columnWidth, "Numeros de dano", IsoConfig.V.showDamageNumbers::get,
+                () -> change(IsoConfig.V.showDamageNumbers, !IsoConfig.V.showDamageNumbers.get()));
         y += 31;
 
         addStepper(left, y, columnWidth, "Inclinacao", () -> String.format("%.1f°", CameraRig.pitch()),
@@ -156,6 +160,7 @@ public final class IsoConfigScreen extends Screen {
         change(IsoConfig.V.showNameplates, IsoConfig.V.showNameplates.getDefault());
         change(IsoConfig.V.showHealthBars, IsoConfig.V.showHealthBars.getDefault());
         change(IsoConfig.V.nameplateRange, IsoConfig.V.nameplateRange.getDefault());
+        change(IsoConfig.V.showDamageNumbers, IsoConfig.V.showDamageNumbers.getDefault());
         IsoReveal.setUserEnabled(IsoConfig.V.revealEnabled.get());
         CameraRig.reset();
         rebuildWidgets();

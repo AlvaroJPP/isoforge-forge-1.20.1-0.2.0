@@ -53,6 +53,7 @@ public final class IsoConfig {
         public final ForgeConfigSpec.BooleanValue showNameplates;
         public final ForgeConfigSpec.BooleanValue showHealthBars;
         public final ForgeConfigSpec.IntValue nameplateRange;
+        public final ForgeConfigSpec.BooleanValue showDamageNumbers;
 
         Values(ForgeConfigSpec.Builder b) {
             b.push("camera");
@@ -119,6 +120,8 @@ public final class IsoConfig {
                     .define("showHealthBars", true);
             nameplateRange = b.comment("Distancia maxima, em blocos, para nameplates de criaturas hostis.")
                     .defineInRange("nameplateRange", 20, 8, 48);
+            showDamageNumbers = b.comment("Mostra numeros flutuantes quando o cliente detecta perda de vida.")
+                    .define("showDamageNumbers", true);
             b.pop();
         }
     }

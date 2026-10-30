@@ -75,7 +75,7 @@ Aumente `distance` no config para chegar mais perto do ortografico.
 
 - O detector de comodos e uma busca local simplificada; ainda nao reproduz a classificacao de salas/cavernas,
   handoffs de camera, mascaras espaciais e politicas topologicas completas da Fabric.
-- O HUD da Forge inclui estado da camera, alvo, vida/fome, painel de alvo e nameplates configuraveis para criaturas hostis e a entidade selecionada. O jogador pode desligar nomes ou barras de vida e ajustar o alcance no F6. Ainda nao inclui os orbes texturizados, numeros de dano, loot beams, menus-bolha ou fotos/GIFs da Fabric.
+- O HUD da Forge inclui estado da camera, alvo, vida/fome, painel de alvo, nameplates configuraveis e numeros de dano flutuantes detectados pela perda de vida no cliente. O jogador pode desligar nomes, barras ou numeros e ajustar o alcance no F6. Ainda nao inclui os orbes texturizados, loot beams, menus-bolha ou fotos/GIFs da Fabric.
 - Click-to-move usa A* local com limite de expansao e degraus de um bloco; nao e ainda o pathfinder completo da Fabric e nao atravessa fluidos ou parkour.
 - A tela de configuracao ja altera opcoes em tempo real; ainda faltam abas, presets visuais e todos os controles avancados da Fabric.
 - Embeddium: o mixin alveja `me.jellysquid.mods.sodium.client.world.WorldSlice` (Embeddium 0.3.x / Rubidium).
@@ -96,7 +96,8 @@ texturizados, menus-bolha, gravacao de GIF e compatibilidade profunda com Sodium
 - Click-to-move opcional com Ctrl + clique direito e busca A* limitada a blocos caminhaveis.
 - Click-to-move revalida o proximo passo e tenta recalcular a rota quando o caminho muda (por exemplo, uma porta ou bloco bloqueando a passagem).
 - HUD mostra o destino e a quantidade de passos restantes durante o click-to-move; ao mirar em uma entidade viva, exibe nome, vida e distancia.
-- Nameplates ARPG no mundo exibem nome para criaturas hostis proximas e para qualquer entidade viva selecionada, respeitando o Room Reveal. Barras aparecem quando a criatura recebe dano ou e selecionada; numeros de vida ficam reservados ao alvo e a criaturas muito feridas. Visibilidade, barras e alcance sao configuraveis no painel F6.
+- Nameplates ARPG no mundo exibem nome para criaturas hostis proximas e para qualquer entidade viva selecionada, respeitando o Room Reveal. Barras aparecem quando a criatura recebe dano ou e selecionada; numeros de vida ficam reservados ao alvo e a criaturas muito feridas.
+- Numeros de dano flutuantes surgem ao detectar reducao real de HP no cliente, acumulam golpes no mesmo tick e desaparecem gradualmente. Podem ser desligados pelo F6. Visibilidade, barras e alcance dos nameplates continuam configuraveis.
 - A busca do teto do reveal interrompe a leitura ao encontrar um chunk nao carregado, evitando consultar terreno fora da area disponivel ao cliente.
 - Rotacao continua por tecla pressionada, ajustes de pitch e teclas dedicadas de zoom.
 
