@@ -143,7 +143,6 @@ public final class IsoClickToMove {
         }
 
         RouteStep next = path.get(1);
-        double rise = next.position().feetY() - player.getY();
         jumpRequested = next.jump() && player.onGround();
     }
 
@@ -232,7 +231,7 @@ public final class IsoClickToMove {
                 for (int halfY = (int) Math.round(point.y * 2.0) - 4;
                      halfY <= (int) Math.round(point.y * 2.0) + 2; halfY++) {
                     NavPos water = new NavPos(tx, halfY, tz);
-                    if (IsoNavigationRules.isWaterNode(level, water)) goals.add(water.key());
+                    if (IsoNavigationRules.isWaterNode(level, water.x(), water.feetY(), water.z())) goals.add(water.key());
                 }
             }
         }
