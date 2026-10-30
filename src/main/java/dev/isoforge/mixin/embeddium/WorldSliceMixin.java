@@ -25,7 +25,7 @@ public abstract class WorldSliceMixin {
     }
 
     @Inject(method = "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
-            at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+            at = @At("RETURN"), cancellable = true, remap = false, require = 0)
     private void isoforge$hidePos(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (IsoReveal.isHidden(pos.getX(), pos.getY(), pos.getZ(), cir.getReturnValue())) cir.setReturnValue(Blocks.AIR.defaultBlockState());
     }
