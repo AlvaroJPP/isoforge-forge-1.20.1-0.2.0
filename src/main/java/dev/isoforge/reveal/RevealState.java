@@ -15,6 +15,7 @@ import java.util.Map;
  */
 public record RevealState(
         boolean active,
+        boolean preserveWaterBelow,
         int px, int py, int pz,
         int cutY,
         int radius,
@@ -24,7 +25,7 @@ public record RevealState(
         double minAlong, double reach) {
 
     public static final int NO_CUT = Integer.MAX_VALUE;
-    public static final RevealState OFF = new RevealState(false, 0, 0, 0, NO_CUT, 0, Map.of(),
+    public static final RevealState OFF = new RevealState(false, false, 0, 0, 0, NO_CUT, 0, Map.of(),
             0, 1, 0, 0, 0, 1, 0, 0);
 
     public double ax() { return px + 0.5; }
@@ -73,6 +74,15 @@ public record RevealState(
 
     public boolean isHidden(int x, int y, int z) {
         return active && (hiddenByRoomRoof(x, y, z) || hiddenByCeiling(x, y, z) || hiddenByTube(x, y, z));
+    }
+
+    /**
+     * Agua abaixo do jogador e preservada enquanto ele nada ou plana.
+     * Isso evita que o cutaway trate o oceano como geometria opaca a remover.
+     */
+    public boolean isHidden(int x, int y, int z, boolean water) {
+        if (preserveWaterBelow && water && y < py) return false;
+        return isHidden(x, y, z);
     }
 
     /**

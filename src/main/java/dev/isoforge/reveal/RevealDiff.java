@@ -1,5 +1,9 @@
 package dev.isoforge.reveal;
 
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+
 /**
  * Calcula quais secoes de chunk mudam de malha quando o reveal passa do estado A para o estado B.
  * Inclui vizinhas quando o bloco alterado fica na borda da secao (a face do vizinho muda de visivel/oculta).
@@ -11,7 +15,7 @@ public final class RevealDiff {
 
     private RevealDiff() {}
 
-    public static void compute(RevealState a, RevealState b, int minSec, int maxSecExclusive, SectionSink sink) {
+    public static void compute(RevealState a, RevealState b, ClientLevel level, int minSec, int maxSecExclusive, SectionSink sink) {
         if (a.equals(b)) return;
         if (!a.active() && !b.active()) return;
 
@@ -30,21 +34,29 @@ public final class RevealDiff {
             for (int sz = sz0; sz <= sz1; sz++) {
                 for (int sy = minSec; sy < maxSecExclusive; sy++) {
                     if (!a.mayAffectSection(sx, sy, sz) && !b.mayAffectSection(sx, sy, sz)) continue;
-                    diffSection(a, b, sx, sy, sz, sink);
+                    diffSection(a, b, level, sx, sy, sz, sink);
                 }
             }
         }
     }
 
-    private static void diffSection(RevealState a, RevealState b, int sx, int sy, int sz, SectionSink sink) {
+    private static void diffSection(RevealState a, RevealState b, ClientLevel level, int sx, int sy, int sz, SectionSink sink) {
         int x0 = sx << 4, y0 = sy << 4, z0 = sz << 4;
         boolean self = false;
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        boolean waterProtectionChanged = a.preserveWaterBelow() != b.preserveWaterBelow()
+                || ((a.preserveWaterBelow() || b.preserveWaterBelow()) && a.py() != b.py());
         boolean nxm = false, nxp = false, nym = false, nyp = false, nzm = false, nzp = false;
         for (int lx = 0; lx < 16; lx++) {
             for (int lz = 0; lz < 16; lz++) {
                 for (int ly = 0; ly < 16; ly++) {
                     int x = x0 + lx, y = y0 + ly, z = z0 + lz;
-                    if (a.isHidden(x, y, z) == b.isHidden(x, y, z)) continue;
+                    boolean water = false;
+                    if (waterProtectionChanged && y < Math.max(a.py(), b.py())) {
+                        mutable.set(x, y, z);
+                        water = level.getFluidState(mutable).is(FluidTags.WATER);
+                    }
+                    if (a.isHidden(x, y, z, water) == b.isHidden(x, y, z, water)) continue;
                     self = true;
                     if (lx == 0) nxm = true;
                     if (lx == 15) nxp = true;

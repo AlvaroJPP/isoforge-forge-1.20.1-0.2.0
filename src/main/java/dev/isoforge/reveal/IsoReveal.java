@@ -9,6 +9,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -45,6 +46,13 @@ public final class IsoReveal {
 
     public static boolean isHidden(int x, int y, int z) {
         return state.isHidden(x, y, z);
+    }
+
+    /** Consulta usada pelos mixins de malha para preservar agua abaixo do jogador em movimento aquatico. */
+    public static boolean isHidden(int x, int y, int z, BlockState blockState) {
+        RevealState snapshot = state;
+        boolean water = blockState.getFluidState().is(FluidTags.WATER);
+        return snapshot.isHidden(x, y, z, water);
     }
 
     public static boolean isEntityHidden(Entity e) {
@@ -94,7 +102,7 @@ public final class IsoReveal {
         if (!neu.equals(old)) {
             state = neu;
             if (level != null) {
-                RevealDiff.compute(old, neu, level.getMinSection(), level.getMaxSection(),
+                RevealDiff.compute(old, neu, level, level.getMinSection(), level.getMaxSection(),
                         (sx, sy, sz) -> PENDING.add(SectionPos.asLong(sx, sy, sz)));
             }
         }
@@ -176,6 +184,7 @@ public final class IsoReveal {
 
         boolean roomDetected = !roomCuts.isEmpty();
         return new RevealState(true,
+                player.isSwimming() || player.isInWater() || player.isFallFlying(),
                 anchorX, anchorY, anchorZ,
                 roomDetected ? RevealState.NO_CUT : appliedCut,
                 IsoConfig.V.ceilingRadius.get(),
