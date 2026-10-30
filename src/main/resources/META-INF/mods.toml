@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="isoforge"
+version="0.2.0"
+displayName="Isoforge"
+displayTest="IGNORE_ALL_VERSION"
+authors="Isoforge"
+description='''
+Camera isometrica com room reveal, mira por cursor, HUD ARPG, click-to-move e controles de camera.
+Somente cliente para Minecraft 1.20.1 / Forge 47.x. Compativel com Embeddium/Rubidium e Oculus.
+'''
+
+[[dependencies.isoforge]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47.1.0,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.isoforge]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="CLIENT"

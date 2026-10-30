@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.isoforge.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "isoforge.refmap.json",
+  "mixins": [],
+  "client": [
+    "BlockEntityRenderDispatcherMixin",
+    "CameraMixin",
+    "EntityRenderDispatcherMixin",
+    "GameRendererMixin",
+    "InputMixin",
+    "KeyboardInputMixin",
+    "LevelRendererMixin",
+    "MouseHandlerMixin",
+    "RenderChunkRegionMixin",
+    "SoundEngineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

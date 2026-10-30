@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.isoforge.mixin.embeddium",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "isoforge.refmap.json",
+  "mixins": [],
+  "client": [
+    "WorldSliceMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

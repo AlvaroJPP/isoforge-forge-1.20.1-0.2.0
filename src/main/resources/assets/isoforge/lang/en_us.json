@@ -1,0 +1,12 @@
+{
+  "key.categories.isoforge": "Isoforge",
+  "key.isoforge.toggle": "Toggle isometric mode",
+  "key.isoforge.rotate_left": "Rotate camera left",
+  "key.isoforge.rotate_right": "Rotate camera right",
+  "key.isoforge.toggle_reveal": "Toggle dollhouse reveal",
+  "key.isoforge.settings": "Open Isocraft settings",
+  "key.isoforge.zoom_in": "Zoom camera in",
+  "key.isoforge.zoom_out": "Zoom camera out",
+  "key.isoforge.pitch_up": "Increase camera pitch",
+  "key.isoforge.pitch_down": "Decrease camera pitch"
+}
