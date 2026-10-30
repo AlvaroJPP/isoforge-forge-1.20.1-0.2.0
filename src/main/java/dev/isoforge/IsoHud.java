@@ -46,15 +46,15 @@ public final class IsoHud {
         if (!IsoClient.active() || player == null || mc.level == null) return;
 
         LivingEntity entity = event.getEntity();
-        if (entity == player || !entity.isAlive() || entity.isInvisibleTo(player)
-                || IsoReveal.isEntityHidden(entity)) return;
+        if (entity == player || entity.isInvisibleTo(player) || IsoReveal.isEntityHidden(entity)) return;
 
         long gameTime = mc.level.getGameTime();
         DamagePopup damage = observeDamage(entity, gameTime);
         boolean showDamage = IsoConfig.V.showDamageNumbers.get()
                 && damage != null && gameTime - damage.startedAt() < DAMAGE_LIFETIME_TICKS;
-        boolean targeted = mc.hitResult instanceof EntityHitResult hit && hit.getEntity() == entity;
-        boolean showNameplate = IsoConfig.V.showNameplates.get()
+        boolean targeted = entity.isAlive()
+                && mc.hitResult instanceof EntityHitResult hit && hit.getEntity() == entity;
+        boolean showNameplate = entity.isAlive() && IsoConfig.V.showNameplates.get()
                 && (targeted || entity.getType().getCategory() == MobCategory.MONSTER);
 
         if (!showDamage && !showNameplate) return;
