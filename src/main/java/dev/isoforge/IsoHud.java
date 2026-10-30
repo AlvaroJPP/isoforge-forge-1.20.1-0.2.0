@@ -116,7 +116,9 @@ public final class IsoHud {
             String text = String.format("-%.1f", damage.amount());
             pose.pushPose();
             pose.translate(0.0, -0.55 - rise * 0.025, 0.0);
-            pose.scale(1.18F, 1.18F, 1.0F);
+            float impactScale = 1.0F + Mth.clamp(
+                    damage.amount() / Math.max(1.0F, entity.getMaxHealth()) * 0.4F, 0.0F, 0.35F);
+            pose.scale(impactScale, impactScale, 1.0F);
             font.drawInBatch(text, -font.width(text) * 0.5F, -20.0F, color, true,
                     pose.last().pose(), buffers, Font.DisplayMode.NORMAL, (alpha / 2) << 24, light);
             pose.popPose();
@@ -163,6 +165,13 @@ public final class IsoHud {
 
     /** Detecta perda real de HP no cliente e cria um popup temporario por entidade. */
     private static DamagePopup observeDamage(LivingEntity entity, long gameTime) {
+        if (lastDamageCleanup != Long.MIN_VALUE && gameTime < lastDamageCleanup) {
+            // Um novo mundo pode iniciar com gameTime menor; nao misture amostras antigas.
+            HEALTH_SAMPLES.clear();
+            DAMAGE_POPUPS.clear();
+            lastDamageCleanup = Long.MIN_VALUE;
+        }
+
         UUID id = entity.getUUID();
         float health = entity.getHealth();
         HealthSample previous = HEALTH_SAMPLES.put(id, new HealthSample(health, gameTime));
