@@ -5,10 +5,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.Input;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.tags.FluidTags;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.CollisionContext;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -245,7 +242,7 @@ public final class IsoClickToMove {
             for (int dz = -3; dz <= 3; dz++) {
                 for (int dy = 2; dy >= -3; dy--) {
                     BlockPos candidate = new BlockPos(x + dx, y + dy, z + dz);
-                    if (isTraversable(level, candidate)) goals.add(candidate.asLong());
+                    if (IsoNavigationRules.isTraversable(level, candidate)) goals.add(candidate.asLong());
                 }
             }
         }
@@ -273,7 +270,7 @@ public final class IsoClickToMove {
             if (goals.contains(node.key())) return reconstruct(startKey, node.key(), parents, jumpEdges);
 
             BlockPos current = unpack(node.key());
-            boolean swimming = isWaterCell(level, current);
+            boolean swimming = IsoNavigationRules.isWaterCell(level, current);
 
             for (int[] direction : DIRECTIONS) {
                 int nx = current.getX() + direction[0];
@@ -285,20 +282,20 @@ public final class IsoClickToMove {
                 if (diagonal) {
                     BlockPos sideX = new BlockPos(current.getX() + direction[0], current.getY(), current.getZ());
                     BlockPos sideZ = new BlockPos(current.getX(), current.getY(), current.getZ() + direction[1]);
-                    if (!isTraversable(level, sideX) || !isTraversable(level, sideZ)) continue;
+                    if (!IsoNavigationRules.isTraversable(level, sideX) || !IsoNavigationRules.isTraversable(level, sideZ)) continue;
                 }
 
                 int[] verticalMoves = swimming ? new int[]{0} : new int[]{0, 1, -1, -2, -3};
                 for (int dy : verticalMoves) {
                     BlockPos next = new BlockPos(nx, current.getY() + dy, nz);
-                    if (!isTraversable(level, next)) continue;
-                    if (dy < -1 && !canDropSafely(level, current, next)) continue;
+                    if (!IsoNavigationRules.isTraversable(level, next)) continue;
+                    if (dy < -1 && !IsoNavigationRules.canDropSafely(level, current, next)) continue;
 
                     double stepCost = diagonal ? 1.41421356237 : 1.0;
                     if (dy > 0) stepCost += 0.85;       // subir exige salto
                     else if (dy == -1) stepCost += 1.65;
                     else if (dy < -1) stepCost += 1.2 + Math.abs(dy) * 0.75;
-                    if (isWaterCell(level, next)) stepCost += 0.35;
+                    if (IsoNavigationRules.isWaterCell(level, next)) stepCost += 0.35;
                     addNode(open, costs, parents, jumpEdges, node, next, stepCost, false, reference);
                 }
             }
@@ -307,7 +304,7 @@ public final class IsoClickToMove {
             if (swimming) {
                 for (int dy : new int[]{1, -1}) {
                     BlockPos next = current.offset(0, dy, 0);
-                    if (!isWaterCell(level, next)) continue;
+                    if (!IsoNavigationRules.isWaterCell(level, next)) continue;
                     addNode(open, costs, parents, jumpEdges, node, next, 1.15, false, reference);
                 }
             }
@@ -316,7 +313,7 @@ public final class IsoClickToMove {
             if (!swimming) {
                 for (int[] direction : CARDINAL_DIRECTIONS) {
                     BlockPos landing = current.offset(direction[0] * 2, 0, direction[1] * 2);
-                    if (!isGroundCell(level, landing) || !isJumpArcClear(level, current, direction[0], direction[1])) {
+                    if (!IsoNavigationRules.isGroundCell(level, landing) || !IsoNavigationRules.isJumpArcClear(level, current, direction[0], direction[1])) {
                         continue;
                     }
                     addNode(open, costs, parents, jumpEdges, node, landing, 2.85, true, reference);
@@ -344,80 +341,11 @@ public final class IsoClickToMove {
         if (step.jump()) {
             int dx = to.getX() - from.getX();
             int dz = to.getZ() - from.getZ();
-            return isGroundCell(level, to) && Math.abs(dx) + Math.abs(dz) == 2
-                    && isJumpArcClear(level, from, Integer.signum(dx), Integer.signum(dz));
+            return IsoNavigationRules.isGroundCell(level, to) && Math.abs(dx) + Math.abs(dz) == 2
+                    && IsoNavigationRules.isJumpArcClear(level, from, Integer.signum(dx), Integer.signum(dz));
         }
-        if (from.getY() - to.getY() > 1) return canDropSafely(level, from, to);
-        return isTraversable(level, to);
-    }
-
-    private static boolean isTraversable(ClientLevel level, BlockPos feet) {
-        if (!hasBodyClearance(level, feet)) return false;
-        if (isWaterCell(level, feet)) return true;
-        return hasSafeFloor(level, feet);
-    }
-
-    private static boolean isGroundCell(ClientLevel level, BlockPos feet) {
-        return hasBodyClearance(level, feet) && hasSafeFloor(level, feet);
-    }
-
-    private static boolean isWaterCell(ClientLevel level, BlockPos feet) {
-        return !level.isOutsideBuildHeight(feet) && level.getFluidState(feet).is(FluidTags.WATER);
-    }
-
-    private static boolean hasBodyClearance(ClientLevel level, BlockPos feet) {
-        if (level.isOutsideBuildHeight(feet) || !level.hasChunkAt(feet)) return false;
-        BlockPos head = feet.above();
-        if (level.isOutsideBuildHeight(head) || !level.hasChunkAt(head)) return false;
-        CollisionContext context = CollisionContext.empty();
-        if (!level.getBlockState(feet).getCollisionShape(level, feet, context).isEmpty()) return false;
-        if (!level.getBlockState(head).getCollisionShape(level, head, context).isEmpty()) return false;
-        return !isHazardousFluid(level, feet) && !isHazardousFluid(level, head);
-    }
-
-    private static boolean hasSafeFloor(ClientLevel level, BlockPos feet) {
-        BlockPos floor = feet.below();
-        if (level.isOutsideBuildHeight(floor) || !level.hasChunkAt(floor) || isHazardousFluid(level, floor)) return false;
-        var floorState = level.getBlockState(floor);
-        if (isDangerousBlock(floorState.getBlock())) return false;
-        return !floorState.getCollisionShape(level, floor, CollisionContext.empty()).isEmpty();
-    }
-
-    private static boolean isHazardousFluid(ClientLevel level, BlockPos pos) {
-        return level.getFluidState(pos).is(FluidTags.LAVA);
-    }
-
-    private static boolean isDangerousBlock(net.minecraft.world.level.block.Block block) {
-        return block == Blocks.MAGMA_BLOCK || block == Blocks.CACTUS
-                || block == Blocks.FIRE || block == Blocks.SOUL_FIRE
-                || block == Blocks.CAMPFIRE || block == Blocks.SOUL_CAMPFIRE;
-    }
-
-    private static boolean canDropSafely(ClientLevel level, BlockPos from, BlockPos landing) {
-        int drop = from.getY() - landing.getY();
-        if (drop < 2 || drop > MAX_SAFE_DROP) return false;
-        if (!isTraversable(level, landing)) return false;
-
-        // A coluna precisa estar livre ate o pouso; evita planejar uma queda atraves de pisos.
-        for (int y = landing.getY() + 1; y <= from.getY() + 1; y++) {
-            BlockPos segment = new BlockPos(landing.getX(), y, landing.getZ());
-            if (!hasBodyClearance(level, segment)) return false;
-        }
-        return true;
-    }
-
-    private static boolean isJumpArcClear(ClientLevel level, BlockPos from, int dx, int dz) {
-        if (Math.abs(dx) + Math.abs(dz) != 1) return false;
-        BlockPos gap = from.offset(dx, 0, dz);
-        // O volume do salto fica livre na altura dos pes, da cabeca e do arco.
-        for (int dy = 0; dy <= 2; dy++) {
-            BlockPos segment = gap.above(dy);
-            if (level.isOutsideBuildHeight(segment) || !level.hasChunkAt(segment)) return false;
-            if (!level.getBlockState(segment).getCollisionShape(level, segment, CollisionContext.empty()).isEmpty()
-                    || isHazardousFluid(level, segment)) return false;
-        }
-        BlockPos landing = from.offset(dx * 2, 0, dz * 2);
-        return isGroundCell(level, landing);
+        if (from.getY() - to.getY() > 1) return IsoNavigationRules.canDropSafely(level, from, to);
+        return IsoNavigationRules.isTraversable(level, to);
     }
 
     private static double heuristic(BlockPos from, Vec3 to) {

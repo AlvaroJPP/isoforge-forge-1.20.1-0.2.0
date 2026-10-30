@@ -94,7 +94,7 @@ texturizados, menus-bolha, gravacao de GIF e compatibilidade profunda com Sodium
 - Painel de configuracao em jogo (F6), com persistencia no TOML do cliente.
 - HUD ARPG com leitura de vida/fome, estado do reveal, zoom, yaw e indicador de mira.
 - Click-to-move opcional com Ctrl + clique direito e busca A* limitada a blocos caminhaveis.
-- Click-to-move valida os proximos tres passos em intervalos curtos, evita diagonais por cantos bloqueados, atravessa volumes de agua, salta uma lacuna de um bloco e aceita quedas seguras de ate tres blocos. Recalcula a rota quando uma porta/bloco muda ou quando o jogador deixa de progredir.
+- Click-to-move valida os proximos tres passos em intervalos curtos, evita diagonais por cantos bloqueados, testa o volume real aproximado do jogador para permitir passagens por portas abertas, atravessa agua, salta uma lacuna de um bloco e aceita quedas seguras de ate tres blocos. Evita lava, magma, cactus, fogo, arbustos de frutas, rosas do wither, estalactites pontiagudas e neve fofa. Recalcula a rota quando uma porta/bloco muda ou quando o jogador deixa de progredir.
 - HUD mostra o destino e a quantidade de passos restantes durante o click-to-move; ao mirar em uma entidade viva, exibe nome, vida e distancia.
 - Nameplates ARPG no mundo exibem nome para criaturas hostis proximas e para qualquer entidade viva selecionada, respeitando o Room Reveal. Barras aparecem quando a criatura recebe dano ou e selecionada; numeros de vida ficam reservados ao alvo e a criaturas muito feridas.
 - Numeros de dano flutuantes surgem ao detectar reducao real de HP no cliente, acumulam golpes no mesmo tick e desaparecem gradualmente. Podem ser desligados pelo F6. Visibilidade, barras e alcance dos nameplates continuam configuraveis.
