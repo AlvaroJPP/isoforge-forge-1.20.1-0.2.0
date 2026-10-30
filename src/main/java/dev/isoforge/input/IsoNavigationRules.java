@@ -103,7 +103,7 @@ final class IsoNavigationRules {
         BlockPos gap = from.offset(dx, 0, dz);
 
         // A caixa do personagem precisa passar sobre a lacuna sem atingir teto ou parede.
-        for (int dy = 0; dy <= 2; dy++) {
+        for (int dy = 0; dy <= 1; dy++) {
             BlockPos segment = gap.above(dy);
             if (!hasBodyClearance(level, segment) || isHazardousFluid(level, segment)) return false;
         }
