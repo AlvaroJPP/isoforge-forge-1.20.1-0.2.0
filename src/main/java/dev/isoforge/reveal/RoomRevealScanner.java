@@ -28,7 +28,7 @@ final class RoomRevealScanner {
         long seed = BlockPos.asLong(feet.getX(), feet.getY() + 1, feet.getZ());
 
         if (feet.getY() + 1 > maxY || !isPassable(level, pos, feet.getX(), feet.getY() + 1, feet.getZ())) {
-            return Map.of();
+            return null; // null sinaliza leitura incompleta; Map.of() significa comodo valido sem teto.
         }
 
         ArrayDeque<Long> queue = new ArrayDeque<>();
@@ -45,7 +45,7 @@ final class RoomRevealScanner {
             long column = BlockPos.asLong(x, 0, z);
             highestByColumn.merge(column, y, Math::max);
 
-            if (visited.size() >= MAX_VISITED_CELLS) return Map.of();
+            if (visited.size() >= MAX_VISITED_CELLS) return null; // nao publique uma mascara parcial.
             addIfPassable(level, queue, visited, pos, x + 1, y, z, feet, radiusSquared, minY, maxY);
             addIfPassable(level, queue, visited, pos, x - 1, y, z, feet, radiusSquared, minY, maxY);
             addIfPassable(level, queue, visited, pos, x, y + 1, z, feet, radiusSquared, minY, maxY);
