@@ -21,7 +21,7 @@ public abstract class EntityRenderDispatcherMixin {
         // frustum da camera remota remover o proprio jogador do render pass.
         Minecraft mc = Minecraft.getInstance();
         if (IsoClient.active() && entity == mc.player && !entity.isInvisible()
-                && (entity.isSwimming() || entity.isInWater() || entity.isFallFlying())) {
+                && (entity.isSwimming() || entity.isInWater() || mc.player.isFallFlying())) {
             cir.setReturnValue(true);
             return;
         }
