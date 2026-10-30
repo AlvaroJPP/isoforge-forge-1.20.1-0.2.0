@@ -132,6 +132,10 @@ public final class IsoClient {
 
     /** O jogador sempre olha na direcao do cursor (estilo ARPG). */
     private static void faceCursor(Minecraft mc, LocalPlayer player) {
+        // Durante Elytra, o mouse precisa controlar yaw e pitch nativos do jogador.
+        // Nao force a mira da camera isometrica sobre o jogador: isso prende o yaw
+        // ao cone estreito da camera e impede curvas/retornos de 180 graus.
+        if (player.isFallFlying()) return;
         if (mc.screen != null || !player.isAlive() || player.isSleeping() || !IsoPicker.hasAim()) return;
         Vec3 aim = IsoPicker.aimPoint();
         Vec3 eye = player.getEyePosition();
