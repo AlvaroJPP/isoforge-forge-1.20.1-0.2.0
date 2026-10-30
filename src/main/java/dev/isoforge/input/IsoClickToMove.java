@@ -153,7 +153,7 @@ public final class IsoClickToMove {
             double dx = next.x() + 0.5 - player.getX();
             double dz = next.z() + 0.5 - player.getZ();
             double dy = Math.abs(next.feetY() - player.getY());
-            if (dx * dx + dz * dz > WAYPOINT_RADIUS_SQUARED || dy > 0.72) break;
+            if (dx * dx + dz * dz > WAYPOINT_RADIUS_SQUARED || dy > 0.20) break;
             path.remove(0);
         }
     }
